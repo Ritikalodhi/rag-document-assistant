@@ -1,7 +1,7 @@
 
 """Document retrieval from vector database"""
  
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from src.config import (
     LLM_PROVIDER,
     OPENAI_API_KEY,
