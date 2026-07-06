@@ -1,6 +1,5 @@
-
 """LLM integration and response generation — supports OpenAI and Gemini."""
- 
+
 from langchain_core.prompts import PromptTemplate
 from src.config import (
     OPENAI_API_KEY, OPENAI_MODEL,
@@ -8,38 +7,57 @@ from src.config import (
     LLM_PROVIDER,
 )
 from loguru import logger
- 
+
 _QA_TEMPLATE = PromptTemplate(
     input_variables=["context", "question"],
     template="""Based on the following context, answer the question.
- 
+
 Context:
 {context}
- 
+
 Question: {question}
- 
+
 Answer: Provide a clear, concise answer based only on the provided context. \
 If the answer cannot be found in the context, say \
 "I don't have enough information to answer this question." """,
 )
- 
+
 _SUMMARIZE_TEMPLATE = PromptTemplate(
-    input_variables=["text", "max_length"],
-    template="""Summarize the following text in approximately {max_length} words:
- 
+    input_variables=["text"],
+    template="""You are an expert research paper summarizer.
+Your task is to generate a concise, accurate, and well-structured summary using ONLY the retrieved context provided below.
+
+Instructions:
+- Do NOT use outside knowledge or make assumptions.
+- If a detail is not present in the retrieved context, do not invent it.
+- Keep the summary between 150 and 200 words.
+- Write in clear, professional language.
+
+Your summary should include:
+1. The problem or motivation behind the work.
+2. The proposed solution or methodology.
+3. Important implementation details (if available).
+4. Key results, including numerical metrics such as accuracy, F1-score, FPS, etc.
+5. Limitations or error analysis.
+6. Future work.
+7. The overall conclusion.
+
+Return only the summary as a single paragraph.
+
+Context:
 {text}
- 
+
 Summary:""",
 )
- 
- 
+
+
 class LLMManager:
     """Manages LLM interactions for OpenAI and Gemini providers."""
- 
+
     def __init__(self, model: str | None = None, temperature: float = 0.7):
         self.temperature = temperature
         self.provider = LLM_PROVIDER
- 
+
         if self.provider == "openai":
             from langchain_openai import ChatOpenAI
             self.model_name = model or OPENAI_MODEL
@@ -48,25 +66,25 @@ class LLMManager:
                 model=self.model_name,
                 temperature=temperature,
             )
- 
+
         elif self.provider == "gemini":
             from langchain_google_genai import ChatGoogleGenerativeAI
             self.model_name = model or GEMINI_MODEL
             self.llm = ChatGoogleGenerativeAI(
-            google_api_key=GEMINI_API_KEY,
-            model=self.model_name,
-            temperature=temperature,
-            max_output_tokens=4096,
-        )
- 
+                google_api_key=GEMINI_API_KEY,
+                model=self.model_name,
+                temperature=temperature,
+                max_output_tokens=4096,
+            )
+
         else:
             raise ValueError(f"Invalid LLM provider: {self.provider}")
- 
+
         logger.info(
             f"Initialized {self.provider.upper()} LLM: {self.model_name} "
             f"(temperature={temperature})"
         )
- 
+
     def _invoke(self, prompt: str) -> str:
         response = self.llm.invoke(prompt)
         content = response.content
@@ -76,7 +94,7 @@ class LLMManager:
                 for part in content
             )
         return content.strip()
- 
+
     def generate_answer(self, context: str, question: str) -> str:
         """Generate an answer grounded in the retrieved context."""
         try:
@@ -87,11 +105,11 @@ class LLMManager:
         except Exception as e:
             logger.error(f"Error generating answer: {e}")
             raise
- 
-    def summarize(self, text: str, max_length: int = 150) -> str:
-        """Return a short summary of the provided text."""
+
+    def summarize(self, text: str) -> str:
+        """Return a structured research summary."""
         try:
-            prompt = _SUMMARIZE_TEMPLATE.format(text=text, max_length=max_length)
+            prompt = _SUMMARIZE_TEMPLATE.format(text=text)
             return self._invoke(prompt)
         except Exception as e:
             logger.error(f"Error summarizing text: {e}")
