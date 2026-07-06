@@ -47,6 +47,7 @@ class QueryResponse(BaseModel):
     answer: str
     context: list[ContextItem]
     retrieval_trace: dict | None = None
+    confidence_score: dict | None = None
     success: bool
 
 
@@ -63,6 +64,7 @@ class StatsResponse(BaseModel):
     collection_name: str
     document_count: int
     persist_dir: str
+    bm25_docs: int = 0
 
 
 class SummaryResponse(BaseModel):
@@ -211,6 +213,36 @@ async def get_statistics():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/documents/{doc_id}", tags=["Documents"])
+async def delete_document(doc_id: str):
+    """Delete a document: removes its chunks, file, and metadata."""
+    try:
+        result = rag.delete_document(doc_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/documents/{doc_id}", tags=["Documents"])
+async def get_document(doc_id: str):
+    """Get a single document's metadata."""
+    try:
+        doc = rag.get_document(doc_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+        return doc
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/documents", tags=["Documents"])
 async def list_documents():
     """List all uploaded documents with metadata (and cached summary if generated)."""
@@ -301,6 +333,40 @@ async def get_collection(collection_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class RenameCollectionRequest(BaseModel):
+    name: str
+
+
+@app.patch("/api/collections/{collection_id}", tags=["Collections"])
+async def rename_collection(collection_id: str, request: RenameCollectionRequest):
+    """Rename a collection."""
+    try:
+        result = rag.rename_collection(collection_id, request.name)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error renaming collection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/collections/{collection_id}", tags=["Collections"])
+async def delete_collection(collection_id: str):
+    """Delete a collection (documents inside are NOT deleted, just unfiled)."""
+    try:
+        result = rag.delete_collection(collection_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting collection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/conversations", tags=["Conversations"])
 async def get_conversations(limit: int = Query(default=100, ge=1, le=1000)):
     try:
@@ -308,6 +374,21 @@ async def get_conversations(limit: int = Query(default=100, ge=1, le=1000)):
         return {"conversations": history, "count": len(history)}
     except Exception as e:
         logger.error(f"Error retrieving conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/conversations/{entry_id}", tags=["Conversations"])
+async def delete_conversation(entry_id: str):
+    """Delete a single conversation entry."""
+    try:
+        ok = rag.history.delete_entry(entry_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail=f"Conversation '{entry_id}' not found.")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting conversation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -325,6 +406,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
+    
 # """FastAPI application for RAG Document Assistant."""
 
 # from contextlib import asynccontextmanager
@@ -362,10 +444,18 @@ if __name__ == "__main__":
 #     k: int = 4
 
 
+# class ContextItem(BaseModel):
+#     content: str
+#     source: str
+#     confidence_percent: float
+#     page: int | None = None
+
+
 # class QueryResponse(BaseModel):
 #     question: str
 #     answer: str
-#     context: list
+#     context: list[ContextItem]
+#     retrieval_trace: dict | None = None
 #     success: bool
 
 
@@ -477,6 +567,40 @@ if __name__ == "__main__":
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
+# @app.get("/api/documents/{doc_id}/study-notes", tags=["Documents"])
+# async def study_notes(doc_id: str):
+#     """Generate study notes: summary, key concepts, flashcards, viva questions, MCQs."""
+#     try:
+#         result = rag.generate_study_notes(doc_id)
+#         if not result["success"]:
+#             raise HTTPException(status_code=404, detail=result["error"])
+#         return result
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Study notes error: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+# class CrossDocRequest(BaseModel):
+#     doc_ids: list[str] | None = None  # None = use all documents
+
+
+# @app.post("/api/documents/cross-analysis", tags=["Documents"])
+# async def cross_document_analysis(request: CrossDocRequest):
+#     """Find concepts and themes shared across multiple documents."""
+#     try:
+#         result = rag.cross_document_analysis(request.doc_ids)
+#         if not result["success"]:
+#             raise HTTPException(status_code=400, detail=result["error"])
+#         return result
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Cross-document error: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
 # @app.get("/api/analytics", tags=["System"])
 # async def get_analytics():
 #     """Analytics dashboard — documents, chunks, queries, collections, LLM info."""
@@ -493,6 +617,36 @@ if __name__ == "__main__":
 #         return StatsResponse(**rag.get_stats())
 #     except Exception as e:
 #         logger.error(f"Stats error: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @app.delete("/api/documents/{doc_id}", tags=["Documents"])
+# async def delete_document(doc_id: str):
+#     """Delete a document: removes its chunks, file, and metadata."""
+#     try:
+#         result = rag.delete_document(doc_id)
+#         if not result["success"]:
+#             raise HTTPException(status_code=404, detail=result["error"])
+#         return result
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Delete error: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @app.get("/api/documents/{doc_id}", tags=["Documents"])
+# async def get_document(doc_id: str):
+#     """Get a single document's metadata."""
+#     try:
+#         doc = rag.get_document(doc_id)
+#         if doc is None:
+#             raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+#         return doc
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error getting document: {e}")
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -586,6 +740,40 @@ if __name__ == "__main__":
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
+# class RenameCollectionRequest(BaseModel):
+#     name: str
+
+
+# @app.patch("/api/collections/{collection_id}", tags=["Collections"])
+# async def rename_collection(collection_id: str, request: RenameCollectionRequest):
+#     """Rename a collection."""
+#     try:
+#         result = rag.rename_collection(collection_id, request.name)
+#         if not result["success"]:
+#             raise HTTPException(status_code=404, detail=result["error"])
+#         return result
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error renaming collection: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @app.delete("/api/collections/{collection_id}", tags=["Collections"])
+# async def delete_collection(collection_id: str):
+#     """Delete a collection (documents inside are NOT deleted, just unfiled)."""
+#     try:
+#         result = rag.delete_collection(collection_id)
+#         if not result["success"]:
+#             raise HTTPException(status_code=404, detail=result["error"])
+#         return result
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error deleting collection: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
 # @app.get("/api/conversations", tags=["Conversations"])
 # async def get_conversations(limit: int = Query(default=100, ge=1, le=1000)):
 #     try:
@@ -593,6 +781,21 @@ if __name__ == "__main__":
 #         return {"conversations": history, "count": len(history)}
 #     except Exception as e:
 #         logger.error(f"Error retrieving conversations: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @app.delete("/api/conversations/{entry_id}", tags=["Conversations"])
+# async def delete_conversation(entry_id: str):
+#     """Delete a single conversation entry."""
+#     try:
+#         ok = rag.history.delete_entry(entry_id)
+#         if not ok:
+#             raise HTTPException(status_code=404, detail=f"Conversation '{entry_id}' not found.")
+#         return {"success": True}
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error deleting conversation: {e}")
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -609,4 +812,4 @@ if __name__ == "__main__":
 # if __name__ == "__main__":
 #     import uvicorn
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
-
+    

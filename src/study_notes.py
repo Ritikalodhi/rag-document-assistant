@@ -30,7 +30,7 @@ _NOTES_TEMPLATE = PromptTemplate(
   ]
 }}
 
-Generate: 10 key concepts, 10 flashcards, 20 viva questions, 15 MCQs.
+Generate: 5 key concepts, 5 flashcards, 15 viva questions, 15 MCQs.
 
 Document:
 {text}

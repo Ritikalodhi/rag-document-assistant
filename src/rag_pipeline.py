@@ -10,6 +10,7 @@ from src.comparator import DocumentComparator
 from src.suggested_questions import QuestionSuggester
 from src.study_notes import StudyNotesGenerator
 from src.cross_document import CrossDocumentIntelligence
+from src.confidence_scorer import AnswerConfidenceScorer
 from src.doc_store import DocumentStore
 from src.collections import CollectionStore
 from loguru import logger
@@ -28,6 +29,7 @@ class RAGPipeline:
         self.question_suggester = QuestionSuggester(self.llm_manager)
         self.study_notes_generator = StudyNotesGenerator(self.llm_manager)
         self.cross_doc_intelligence = CrossDocumentIntelligence(self.llm_manager)
+        self.confidence_scorer = AnswerConfidenceScorer(self.llm_manager)
         # Tracks per-document metadata (full text, summary, doc_id) on disk.
         self.doc_store = DocumentStore()
         # Tracks named collections (workspaces) of doc_ids.
@@ -139,13 +141,13 @@ class RAGPipeline:
             answer = self.llm_manager.generate_answer(context, question)
 
             context_list = []
-            for doc, distance in unique_scored:
+            for doc, confidence in unique_scored:
                 # Fix 2: filename only, not full path
                 raw_source = doc.metadata.get("source", "Unknown")
                 clean_source = Path(raw_source).name if raw_source != "Unknown" else raw_source
                 # Fix 3: page number from metadata (PyPDFLoader stores it as 'page')
                 page = doc.metadata.get("page", None)
-                confidence = round(max(0.0, min(1.0, 1 - distance / 2)) * 100, 1)
+                # confidence is already 0-100 from the hybrid retriever
                 entry = {
                     "content": doc.page_content,
                     "source": clean_source,
@@ -169,11 +171,19 @@ class RAGPipeline:
             except Exception:
                 logger.exception("Failed to persist conversation entry")
 
+            # Answer confidence scoring
+            confidence_score = self.confidence_scorer.score(
+                question=question,
+                answer=answer,
+                context_list=context_list,
+            )
+
             return {
                 "question": question,
                 "answer": answer,
                 "context": context_list,
                 "retrieval_trace": retrieval_trace,
+                "confidence_score": confidence_score,
                 "success": True,
             }
 
@@ -271,9 +281,57 @@ class RAGPipeline:
         light_docs = [{k: v for k, v in d.items() if k != "full_text"} for d in docs]
         return {**collection, "documents": light_docs}
 
+    def rename_collection(self, collection_id: str, new_name: str) -> dict:
+        ok = self.collection_store.rename(collection_id, new_name)
+        if not ok:
+            return {"success": False, "error": f"Collection '{collection_id}' not found."}
+        return {"success": True, "collection_id": collection_id, "name": new_name}
+
+    def delete_collection(self, collection_id: str) -> dict:
+        ok = self.collection_store.delete(collection_id)
+        if not ok:
+            return {"success": False, "error": f"Collection '{collection_id}' not found."}
+        return {"success": True}
+
+    def get_document(self, doc_id: str) -> dict | None:
+        """Return one document's metadata (no full_text) or None if not found."""
+        doc = self.doc_store.get(doc_id)
+        if doc is None:
+            return None
+        return {k: v for k, v in doc.items() if k != "full_text"}
+
     def list_documents(self) -> list[dict]:
         """Return metadata for all tracked documents (no full_text, keeps it light)."""
         return self.doc_store.list_summaries()
+
+    def delete_document(self, doc_id: str) -> dict:
+        """Delete a document: removes its chunks from Chroma, its file from
+        disk, and its record from doc_store/collections."""
+        doc = self.doc_store.get(doc_id)
+        if doc is None:
+            return {"success": False, "error": f"Document '{doc_id}' not found."}
+
+        try:
+            # Remove chunks from Chroma matching this file's path
+            self.retriever.delete_by_source(doc["file_path"])
+
+            # Remove the file from disk
+            file_path = Path(doc["file_path"])
+            if file_path.exists():
+                file_path.unlink()
+
+            # Remove from any collections
+            for c in self.collection_store.list_all():
+                self.collection_store.remove_document(c["collection_id"], doc_id)
+
+            # Remove doc_store record
+            self.doc_store.delete(doc_id)
+
+            logger.info(f"Deleted document: {doc['filename']}")
+            return {"success": True, "filename": doc["filename"]}
+        except Exception as e:
+            logger.error(f"Error deleting document {doc_id}: {e}")
+            return {"success": False, "error": str(e)}
 
     def get_stats(self) -> dict:
         """Return collection statistics from the vector store."""
@@ -351,6 +409,8 @@ class RAGPipeline:
         return {
             "total_documents": len(docs),
             "total_chunks": chroma["document_count"],
+            "bm25_indexed_chunks": chroma.get("bm25_docs", 0),
+            "retrieval_mode": "hybrid (dense + BM25)",
             "total_queries": len(conversations),
             "queries_today": queries_today,
             "total_collections": len(collections),
@@ -370,6 +430,8 @@ class RAGPipeline:
 # from src.summarizer import DocumentSummarizer
 # from src.comparator import DocumentComparator
 # from src.suggested_questions import QuestionSuggester
+# from src.study_notes import StudyNotesGenerator
+# from src.cross_document import CrossDocumentIntelligence
 # from src.doc_store import DocumentStore
 # from src.collections import CollectionStore
 # from loguru import logger
@@ -386,6 +448,8 @@ class RAGPipeline:
 #         self.summarizer = DocumentSummarizer(self.llm_manager)
 #         self.comparator = DocumentComparator(self.llm_manager)
 #         self.question_suggester = QuestionSuggester(self.llm_manager)
+#         self.study_notes_generator = StudyNotesGenerator(self.llm_manager)
+#         self.cross_doc_intelligence = CrossDocumentIntelligence(self.llm_manager)
 #         # Tracks per-document metadata (full text, summary, doc_id) on disk.
 #         self.doc_store = DocumentStore()
 #         # Tracks named collections (workspaces) of doc_ids.
@@ -426,47 +490,114 @@ class RAGPipeline:
 #             logger.error(f"Error adding document: {e}")
 #             return {"success": False, "error": str(e)}
 
+#     # Sections we can detect and filter to directly
+#     _SECTION_KEYWORDS = {
+#         "abstract": "abstract",
+#         "introduction": "introduction",
+#         "conclusion": "conclusion",
+#         "methodology": "methodology",
+#         "references": "references",
+#         "results": "results",
+#         "discussion": "discussion",
+#     }
+
+#     def _detect_section(self, question: str) -> str | None:
+#         """Return a section name if the query targets a specific document section."""
+#         q = question.lower()
+#         for keyword, section in self._SECTION_KEYWORDS.items():
+#             if keyword in q:
+#                 return section
+#         return None
+
 #     def query(self, question: str, k: int = 4) -> dict:
 #         """Answer a question from the indexed documents.
 
-#         NEW (Feature 5): each source now includes a 0-100% confidence score,
-#         derived from Chroma's cosine distance (lower distance = higher score).
+#         Fixes applied:
+#         1. Section detection — bypasses vector search for section-specific queries.
+#         2. Deduplication — removes duplicate chunks before sending to LLM.
+#         3. Clean source — returns filename only, not full path.
+#         4. Page number — included when available in chunk metadata.
+#         5. Retrieval trace — shows query→chunks→scores→answer pipeline.
 #         """
 #         try:
-#             scored_docs = self.retriever.retrieve_with_scores(question, k=k)
+#             # Fix 1: section-aware retrieval — filter by section keyword if detected
+#             section = self._detect_section(question)
+#             if section:
+#                 scored_docs = self.retriever.retrieve_with_scores(question, k=k * 2)
+#                 # Keep only chunks whose content mentions the section heading
+#                 filtered = [
+#                     (doc, score) for doc, score in scored_docs
+#                     if section in doc.page_content.lower()
+#                 ]
+#                 # Fall back to full results if no section-matching chunks found
+#                 scored_docs = filtered if filtered else scored_docs
+#             else:
+#                 scored_docs = self.retriever.retrieve_with_scores(question, k=k * 2)
 
 #             if not scored_docs:
 #                 return {
 #                     "question": question,
 #                     "answer": "No relevant documents found in the knowledge base.",
 #                     "context": [],
+#                     "retrieval_trace": {},
 #                     "success": False,
 #                 }
 
-#             docs = [doc for doc, _ in scored_docs]
+#             # Fix 1: Deduplicate by content hash
+#             seen, unique_scored = set(), []
+#             for doc, score in scored_docs:
+#                 content_hash = hash(doc.page_content.strip())
+#                 if content_hash not in seen:
+#                     seen.add(content_hash)
+#                     unique_scored.append((doc, score))
+#                 if len(unique_scored) == k:
+#                     break
+
+#             docs = [doc for doc, _ in unique_scored]
 #             context = "\n---\n".join(
 #                 f"Source: {doc.metadata.get('source', 'Unknown')}\n{doc.page_content}"
 #                 for doc in docs
 #             )
 #             answer = self.llm_manager.generate_answer(context, question)
 
-#             # Chroma cosine distance is typically in [0, 2]; clamp and invert
-#             # to a friendlier 0-100% "confidence" score for display purposes.
-#             context_list = [
-#                 {
+#             context_list = []
+#             for doc, distance in unique_scored:
+#                 # Fix 2: filename only, not full path
+#                 raw_source = doc.metadata.get("source", "Unknown")
+#                 clean_source = Path(raw_source).name if raw_source != "Unknown" else raw_source
+#                 # Fix 3: page number from metadata (PyPDFLoader stores it as 'page')
+#                 page = doc.metadata.get("page", None)
+#                 confidence = round(max(0.0, min(1.0, 1 - distance / 2)) * 100, 1)
+#                 entry = {
 #                     "content": doc.page_content,
-#                     "source": doc.metadata.get("source", "Unknown"),
-#                     "confidence_percent": round(max(0.0, min(1.0, 1 - distance / 2)) * 100, 1),
+#                     "source": clean_source,
+#                     "confidence_percent": confidence,
 #                 }
-#                 for doc, distance in scored_docs
-#             ]
+#                 if page is not None:
+#                     entry["page"] = page + 1  # convert 0-indexed to 1-indexed
+#                 context_list.append(entry)
+
+#             # Fix 5: retrieval trace for transparency
+#             retrieval_trace = {
+#                 "query": question,
+#                 "chunks_retrieved": len(unique_scored),
+#                 "chunks_before_dedup": len(scored_docs),
+#                 "duplicates_removed": len(scored_docs) - len(unique_scored),
+#                 "scores": [c["confidence_percent"] for c in context_list],
+#             }
 
 #             try:
 #                 self.history.add_entry(question=question, answer=answer, context=context_list)
 #             except Exception:
 #                 logger.exception("Failed to persist conversation entry")
 
-#             return {"question": question, "answer": answer, "context": context_list, "success": True}
+#             return {
+#                 "question": question,
+#                 "answer": answer,
+#                 "context": context_list,
+#                 "retrieval_trace": retrieval_trace,
+#                 "success": True,
+#             }
 
 #         except Exception as e:
 #             logger.error(f"Error querying RAG system: {e}")
@@ -474,6 +605,7 @@ class RAGPipeline:
 #                 "question": question,
 #                 "answer": f"Error processing query: {e}",
 #                 "context": [],
+#                 "retrieval_trace": {},
 #                 "success": False,
 #             }
 
@@ -561,13 +693,94 @@ class RAGPipeline:
 #         light_docs = [{k: v for k, v in d.items() if k != "full_text"} for d in docs]
 #         return {**collection, "documents": light_docs}
 
+#     def rename_collection(self, collection_id: str, new_name: str) -> dict:
+#         ok = self.collection_store.rename(collection_id, new_name)
+#         if not ok:
+#             return {"success": False, "error": f"Collection '{collection_id}' not found."}
+#         return {"success": True, "collection_id": collection_id, "name": new_name}
+
+#     def delete_collection(self, collection_id: str) -> dict:
+#         ok = self.collection_store.delete(collection_id)
+#         if not ok:
+#             return {"success": False, "error": f"Collection '{collection_id}' not found."}
+#         return {"success": True}
+
+#     def get_document(self, doc_id: str) -> dict | None:
+#         """Return one document's metadata (no full_text) or None if not found."""
+#         doc = self.doc_store.get(doc_id)
+#         if doc is None:
+#             return None
+#         return {k: v for k, v in doc.items() if k != "full_text"}
+
 #     def list_documents(self) -> list[dict]:
 #         """Return metadata for all tracked documents (no full_text, keeps it light)."""
 #         return self.doc_store.list_summaries()
 
+#     def delete_document(self, doc_id: str) -> dict:
+#         """Delete a document: removes its chunks from Chroma, its file from
+#         disk, and its record from doc_store/collections."""
+#         doc = self.doc_store.get(doc_id)
+#         if doc is None:
+#             return {"success": False, "error": f"Document '{doc_id}' not found."}
+
+#         try:
+#             # Remove chunks from Chroma matching this file's path
+#             self.retriever.delete_by_source(doc["file_path"])
+
+#             # Remove the file from disk
+#             file_path = Path(doc["file_path"])
+#             if file_path.exists():
+#                 file_path.unlink()
+
+#             # Remove from any collections
+#             for c in self.collection_store.list_all():
+#                 self.collection_store.remove_document(c["collection_id"], doc_id)
+
+#             # Remove doc_store record
+#             self.doc_store.delete(doc_id)
+
+#             logger.info(f"Deleted document: {doc['filename']}")
+#             return {"success": True, "filename": doc["filename"]}
+#         except Exception as e:
+#             logger.error(f"Error deleting document {doc_id}: {e}")
+#             return {"success": False, "error": str(e)}
+
 #     def get_stats(self) -> dict:
 #         """Return collection statistics from the vector store."""
 #         return self.retriever.get_collection_info()
+
+#     def generate_study_notes(self, doc_id: str) -> dict:
+#         """Generate study notes (summary, flashcards, viva Qs, MCQs) for a document."""
+#         doc = self.doc_store.get(doc_id)
+#         if doc is None:
+#             return {"success": False, "error": f"Document '{doc_id}' not found."}
+#         try:
+#             notes = self.study_notes_generator.generate(doc["full_text"])
+#             return {"success": True, "filename": doc["filename"], **notes}
+#         except Exception as e:
+#             logger.error(f"Study notes error for {doc_id}: {e}")
+#             return {"success": False, "error": str(e)}
+
+#     def cross_document_analysis(self, doc_ids: list[str] | None = None) -> dict:
+#         """Find shared concepts across multiple documents.
+
+#         If doc_ids is None, uses ALL documents in the store.
+#         """
+#         all_docs = self.doc_store.list_summaries()
+#         if doc_ids:
+#             selected = [self.doc_store.get(d) for d in doc_ids if self.doc_store.get(d)]
+#         else:
+#             selected = [self.doc_store.get(d["doc_id"]) for d in all_docs]
+
+#         if len(selected) < 2:
+#             return {"success": False, "error": "Need at least 2 documents for cross-document analysis."}
+
+#         docs_input = [{"filename": d["filename"], "full_text": d["full_text"]} for d in selected]
+#         try:
+#             return self.cross_doc_intelligence.find_cross_concepts(docs_input)
+#         except Exception as e:
+#             logger.error(f"Cross-document error: {e}")
+#             return {"success": False, "error": str(e)}
 
 #     def get_analytics(self) -> dict:
 #         """Return an analytics dashboard payload.
@@ -616,3 +829,5 @@ class RAGPipeline:
 #             "llm_provider": self.llm_manager.provider,
 #             "llm_model": self.llm_manager.model_name,
 #         }
+    
+    
