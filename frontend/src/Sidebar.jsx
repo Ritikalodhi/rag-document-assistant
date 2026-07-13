@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { uploadDocument } from './api';
+import { useAuth } from './AuthContext';
 
 const links = [
   { to: '/chat', icon: 'chat', label: 'Chat' },
@@ -12,6 +13,8 @@ const links = [
 ];
 
 export default function Sidebar() {
+  const { user } = useAuth();
+
   async function handleUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -58,7 +61,7 @@ export default function Sidebar() {
       <div className="p-4 border-t border-outline-variant/20">
         <div className="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface cursor-pointer">
           <span className="material-symbols-outlined text-[20px]">manage_accounts</span>
-          <span className="text-[11px] uppercase tracking-wider">User Profile</span>
+          <span className="text-[11px] uppercase tracking-wider truncate">{user?.email || 'User Profile'}</span>
         </div>
       </div>
     </aside>

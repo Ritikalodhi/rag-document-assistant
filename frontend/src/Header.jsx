@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
 const titles = {
   '/chat': 'Chat',
@@ -13,6 +14,7 @@ const titles = {
 export default function Header() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   return (
     <header className="fixed top-0 right-0 h-16 w-[calc(100%-280px)] bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 flex items-center justify-between px-8 z-40">
@@ -20,6 +22,7 @@ export default function Header() {
         {titles[pathname] || 'DocMind AI'}
       </span>
       <div className="flex items-center gap-4">
+        <span className="text-[12px] text-on-surface-variant hidden md:inline">{user?.username}</span>
         <span className="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer p-2">notifications</span>
         <span className="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer p-2">settings</span>
         <button
@@ -27,6 +30,16 @@ export default function Header() {
           className="px-4 py-2 bg-surface-container-high border border-outline-variant/30 text-on-surface rounded-lg text-[12px] uppercase hover:bg-surface-variant transition-all"
         >
           New Session
+        </button>
+        <button
+          onClick={() => {
+            signOut();
+            navigate('/login', { replace: true });
+          }}
+          className="p-2 text-on-surface-variant hover:text-primary transition-all"
+          title="Sign out"
+        >
+          <span className="material-symbols-outlined">logout</span>
         </button>
       </div>
     </header>
