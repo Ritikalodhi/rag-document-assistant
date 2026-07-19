@@ -37,6 +37,13 @@ class DocumentVersionStore:
     def _content_hash(self, text: str) -> str:
         return hashlib.sha256(text.encode()).hexdigest()[:16]
 
+    def check_duplicate(self, user_id: str, filename: str, full_text: str) -> bool:
+        """Return True if the content hash matches the latest version."""
+        versions = self.get_versions(user_id, filename)
+        if not versions:
+            return False
+        return versions[-1]["content_hash"] == self._content_hash(full_text)
+
     def check_and_register(
         self, user_id: str, filename: str, full_text: str, doc_id: str
     ) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 """FastAPI application for RAG Document Assistant."""
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,17 +12,48 @@ from loguru import logger
 from src.rag_pipeline import RAGPipeline
 from src.config import DOCUMENT_DIR, SUPPORTED_FILE_TYPES, MAX_FILE_SIZE
 from src.auth import auth_router, get_current_user_id
+from src.async_jobs import AsyncJobStore
+from src.background_worker import BackgroundWorker
+
+try:
+    import redis
+except ImportError:  # pragma: no cover - optional dependency
+    redis = None
 
 rag: RAGPipeline | None = None
+worker: BackgroundWorker | None = None
+
+
+def _build_job_store() -> AsyncJobStore:
+    if redis is None:
+        logger.warning("redis package not installed; using in-memory job tracking")
+        return AsyncJobStore()
+
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        client = redis.from_url(redis_url, decode_responses=True)
+        client.ping()
+        logger.info("Redis job store enabled")
+        return AsyncJobStore(redis_client=client)
+    except Exception as exc:
+        logger.warning(f"Redis unavailable, using in-memory fallback: {exc}")
+        return AsyncJobStore()
+
+
+job_store = _build_job_store()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global rag
+    global rag, worker
     logger.info("Starting RAG Document Assistant…")
     rag = RAGPipeline()
+    worker = BackgroundWorker(rag=rag, job_store=job_store)
+    await worker.start()
     logger.info("RAG pipeline ready")
     yield
+    if worker is not None:
+        await worker.stop()
     logger.info("Shutting down")
 
 
@@ -48,6 +80,7 @@ class QueryResponse(BaseModel):
     context: list[ContextItem]
     retrieval_trace: dict | None = None
     confidence_score: dict | None = None
+    grounded: bool = False
     success: bool
 
 class UploadResponse(BaseModel):
@@ -57,6 +90,20 @@ class UploadResponse(BaseModel):
     chunks: int = 0
     doc_id: str | None = None
     collection_id: str | None = None
+
+class AsyncUploadResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str
+
+class AsyncJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    progress: int
+    filename: str
+    collection_id: str | None = None
+    result: dict | None = None
+    error: str | None = None
 
 class StatsResponse(BaseModel):
     collection_name: str
@@ -137,6 +184,33 @@ async def upload_document(file: UploadFile = File(...), collection_id: str | Non
     finally:
         if not succeeded and file_path.exists():
             file_path.unlink(missing_ok=True)
+
+@app.post("/api/upload/async", response_model=AsyncUploadResponse, status_code=202, tags=["Documents"])
+async def upload_document_async(file: UploadFile = File(...), collection_id: str | None = None, user_id: str = Depends(get_current_user_id)):
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in SUPPORTED_FILE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type '{file_ext}'.")
+
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail=f"File exceeds {MAX_FILE_SIZE // (1024*1024)} MB limit.")
+
+    file_path = DOCUMENT_DIR / file.filename
+    try:
+        file_path.write_bytes(contents)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    job_id = job_store.create_job(file.filename, collection_id)
+
+    return AsyncUploadResponse(job_id=job_id, status="queued", message="Upload accepted and is being processed.")
+
+@app.get("/api/upload/async/{job_id}", response_model=AsyncJobStatusResponse, tags=["Documents"])
+async def get_async_job_status(job_id: str, user_id: str = Depends(get_current_user_id)):
+    job = job_store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return AsyncJobStatusResponse(**job)
 
 @app.get("/api/documents", tags=["Documents"])
 async def list_documents(user_id: str = Depends(get_current_user_id)):

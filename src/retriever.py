@@ -33,6 +33,7 @@ class VectorRetriever:
         self.collection_name = collection_name
         self.persist_dir = persist_dir
         self.embeddings = _build_embeddings()
+        self.last_retrieval_mode = "hybrid"
         logger.info(f"Initialized embeddings for provider: {LLM_PROVIDER}")
 
         self.vectorstore = Chroma(
@@ -127,6 +128,9 @@ class VectorRetriever:
         dense_results = self._dense_retrieve(query, k=k * 3)
         sparse_results = self._sparse_retrieve(query, k=k * 3) if self._bm25 else []
 
+        fused, mode = self._compose_results(dense_results, sparse_results, k=k)
+        self.last_retrieval_mode = mode
+
         # Build confidence map from dense cosine distances BEFORE fusion
         dense_conf = {}
         for doc, dist in dense_results:
@@ -135,15 +139,46 @@ class VectorRetriever:
             # Use first 200 chars as key to handle whitespace differences
             dense_conf[doc.page_content[:200]] = conf
 
-        fused = self._rrf(dense_results, sparse_results)
-
         final = []
         for doc, _ in fused[:k]:
-            confidence = dense_conf.get(doc.page_content[:200], 50.0)
+            confidence = dense_conf.get(doc.page_content[:200], 60.0 if mode == "bm25_fallback" else 50.0)
             final.append((doc, confidence))
 
-        logger.info(f"Hybrid retrieval: {len(final)} results for: {query[:50]}...")
+        logger.info(f"{mode.title()} retrieval: {len(final)} results for: {query[:50]}...")
         return final
+
+    @staticmethod
+    def _compose_results(dense_results: list[tuple], sparse_results: list[tuple], k: int = 4) -> tuple[list[tuple], str]:
+        """Combine dense and sparse results with a clear fallback mode."""
+        if not dense_results and sparse_results:
+            return sparse_results[:k], "bm25_fallback"
+        if dense_results and not sparse_results:
+            return dense_results[:k], "dense_only"
+        if not dense_results and not sparse_results:
+            return [], "empty"
+        return VectorRetriever._rrf(dense_results, sparse_results)[:k], "hybrid"
+
+    @staticmethod
+    def _rrf(dense: list[tuple], sparse: list[tuple], k: int = 60) -> list[tuple]:
+        """Reciprocal Rank Fusion.
+        Score = Σ 1/(k + rank_i) across all lists.
+        Higher is better.
+        """
+        scores: dict[str, float] = {}
+        docs: dict[str, object] = {}
+
+        for rank, (doc, _) in enumerate(dense):
+            key = doc.page_content
+            scores[key] = scores.get(key, 0) + 1 / (k + rank + 1)
+            docs[key] = doc
+
+        for rank, (doc, _) in enumerate(sparse):
+            key = doc.page_content
+            scores[key] = scores.get(key, 0) + 1 / (k + rank + 1)
+            docs[key] = doc
+
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        return [(docs[key], score) for key, score in ranked]
 
     def _dense_retrieve(self, query: str, k: int) -> list[tuple]:
         try:
@@ -169,27 +204,6 @@ class VectorRetriever:
         except Exception as e:
             logger.error(f"BM25 retrieval error: {e}")
             return []
-
-    def _rrf(self, dense: list[tuple], sparse: list[tuple], k: int = 60) -> list[tuple]:
-        """Reciprocal Rank Fusion.
-        Score = Σ 1/(k + rank_i) across all lists.
-        Higher is better.
-        """
-        scores: dict[str, float] = {}
-        docs: dict[str, object] = {}
-
-        for rank, (doc, _) in enumerate(dense):
-            key = doc.page_content
-            scores[key] = scores.get(key, 0) + 1 / (k + rank + 1)
-            docs[key] = doc
-
-        for rank, (doc, _) in enumerate(sparse):
-            key = doc.page_content
-            scores[key] = scores.get(key, 0) + 1 / (k + rank + 1)
-            docs[key] = doc
-
-        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        return [(docs[key], score) for key, score in ranked]
 
     def get_collection_info(self) -> dict:
         try:

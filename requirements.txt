@@ -36,6 +36,7 @@ markdown>=3.6
 rank-bm25>=0.2.2
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+redis>=5.0.0
 
 # # FastAPI
 # fastapi==0.115.0

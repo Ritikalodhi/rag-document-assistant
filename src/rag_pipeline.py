@@ -36,6 +36,8 @@ class RAGPipeline:
         self.doc_store = DocumentStore()
         self.collection_store = CollectionStore()
         self.version_store = DocumentVersionStore()
+        self.relevance_threshold = 70.0
+        self.strict_grounding = True
         logger.info("RAG Pipeline ready")
 
     def add_document(self, file_path: str, collection_id: str | None = None) -> dict:
@@ -50,19 +52,6 @@ class RAGPipeline:
             filename = Path(file_path).name
 
             # Versioning: check for duplicate content
-            existing = self.version_store.check_duplicate(filename, full_text)
-            if existing:
-                logger.info(f"Duplicate content detected for {filename} (version {existing['version']})")
-                return {
-                    "success": True,
-                    "file": filename,
-                    "chunks": 0,
-                    "doc_id": existing["doc_id"],
-                    "duplicate": True,
-                    "existing_version": existing["version"],
-                    "message": f"Identical content already indexed as version {existing['version']}.",
-                }
-
             chunks = self.doc_processor.split_documents(documents)
             self.retriever.add_documents(chunks)
 
@@ -73,8 +62,11 @@ class RAGPipeline:
                 chunk_count=len(chunks),
             )
 
-            # Register version
-            self.version_store.add_version(filename, full_text, doc_id, user_id="system")
+            # Register version AFTER doc_id is created
+            self.version_store.check_and_register(
+                user_id="default", filename=filename, full_text=full_text, doc_id=doc_id
+            )
+        
 
             target_collection = collection_id or self.collection_store.get_default_id()
             self.collection_store.add_document(target_collection, doc_id)
@@ -121,6 +113,27 @@ class RAGPipeline:
                 return section
         return None
 
+    def _rewrite_query(self, question: str) -> str:
+        """Lightweight query rewriting for more retrieval-focused searches."""
+        cleaned = question.strip()
+        if not cleaned:
+            return cleaned
+        lowered = cleaned.lower()
+        if lowered.startswith(("what is", "what are", "who is", "who are", "where is", "where are")):
+            return f"Find the relevant passage about: {cleaned}"
+        if lowered.startswith(("explain", "summarize", "describe")):
+            return f"Explain the relevant details of: {cleaned}"
+        return f"Find information about: {cleaned}"
+
+    def _get_retrieval_mode_display(self) -> str:
+        mode = getattr(self.retriever, "last_retrieval_mode", "hybrid")
+        return {
+            "hybrid": "hybrid (dense + bm25)",
+            "bm25_fallback": "bm25_fallback",
+            "dense_only": "dense_only",
+            "empty": "empty",
+        }.get(mode, mode)
+
     def stream_query(self, question: str, k: int = 4):
         """Stream answer tokens. Yields SSE-formatted strings.
 
@@ -130,8 +143,9 @@ class RAGPipeline:
         import json as _json
 
         # Retrieve context (same as query())
+        rewritten_query = self._rewrite_query(question)
         section = self._detect_section(question)
-        scored_docs = self.retriever.retrieve_with_scores(question, k=k*2)
+        scored_docs = self.retriever.retrieve_with_scores(rewritten_query, k=k*2)
         if section:
             filtered = [(d,s) for d,s in scored_docs if section in d.page_content.lower()]
             scored_docs = filtered if filtered else scored_docs
@@ -147,6 +161,38 @@ class RAGPipeline:
 
         if not unique_scored:
             yield "data: " + _json.dumps({"type": "error", "content": "No relevant documents found."}) + "\n\n"
+            return
+
+        best_confidence = max((score for _, score in unique_scored), default=0.0)
+        if self.strict_grounding and best_confidence < self.relevance_threshold:
+            refusal = "I don't have enough relevant information in the retrieved context to answer this question confidently."
+            context_list = []
+            for doc, confidence in unique_scored:
+                raw = doc.metadata.get("source", "Unknown")
+                from pathlib import Path as _Path
+                page = doc.metadata.get("page", None)
+                entry = {
+                    "content": doc.page_content,
+                    "source": _Path(raw).name if raw != "Unknown" else raw,
+                    "confidence_percent": confidence,
+                }
+                if page is not None:
+                    entry["page"] = page + 1
+                context_list.append(entry)
+
+            confidence_score = self.confidence_scorer.score(
+                question=question,
+                answer=refusal,
+                context_list=context_list,
+            )
+            yield "data: " + _json.dumps({
+                "type": "error",
+                "content": refusal,
+                "confidence_score": confidence_score,
+                "retrieval_mode": "hybrid (dense + bm25)",
+                "rewritten_query": rewritten_query,
+            }) + "\n\n"
+            yield "data: " + _json.dumps({"type": "done"}) + "\n\n"
             return
 
         # Send context metadata first
@@ -198,9 +244,10 @@ class RAGPipeline:
         """
         try:
             # Fix 1: section-aware retrieval — filter by section keyword if detected
+            rewritten_query = self._rewrite_query(question)
             section = self._detect_section(question)
             if section:
-                scored_docs = self.retriever.retrieve_with_scores(question, k=k * 2)
+                scored_docs = self.retriever.retrieve_with_scores(rewritten_query, k=k * 2)
                 # Keep only chunks whose content mentions the section heading
                 filtered = [
                     (doc, score) for doc, score in scored_docs
@@ -209,7 +256,7 @@ class RAGPipeline:
                 # Fall back to full results if no section-matching chunks found
                 scored_docs = filtered if filtered else scored_docs
             else:
-                scored_docs = self.retriever.retrieve_with_scores(question, k=k * 2)
+                scored_docs = self.retriever.retrieve_with_scores(rewritten_query, k=k * 2)
 
             if not scored_docs:
                 return {
@@ -217,6 +264,8 @@ class RAGPipeline:
                     "answer": "No relevant documents found in the knowledge base.",
                     "context": [],
                     "retrieval_trace": {},
+                    "confidence_score": {"composite_score": 0.0, "grade": "F"},
+                    "grounded": False,
                     "success": False,
                 }
 
@@ -229,6 +278,49 @@ class RAGPipeline:
                     unique_scored.append((doc, score))
                 if len(unique_scored) == k:
                     break
+
+            best_confidence = max((score for _, score in unique_scored), default=0.0)
+            if self.strict_grounding and best_confidence < self.relevance_threshold:
+                refusal = "I don't have enough relevant information in the retrieved context to answer this question confidently."
+                context_list = []
+                for doc, confidence in unique_scored:
+                    raw_source = doc.metadata.get("source", "Unknown")
+                    clean_source = Path(raw_source).name if raw_source != "Unknown" else raw_source
+                    page = doc.metadata.get("page", None)
+                    entry = {
+                        "content": doc.page_content,
+                        "source": clean_source,
+                        "confidence_percent": confidence,
+                    }
+                    if page is not None:
+                        entry["page"] = page + 1
+                    context_list.append(entry)
+
+                confidence_score = self.confidence_scorer.score(
+                    question=question,
+                    answer=refusal,
+                    context_list=context_list,
+                )
+                retrieval_trace = {
+                    "query": question,
+                    "rewritten_query": rewritten_query,
+                    "chunks_retrieved": len(unique_scored),
+                    "chunks_before_dedup": len(scored_docs),
+                    "duplicates_removed": len(scored_docs) - len(unique_scored),
+                    "best_score": best_confidence,
+                    "threshold": self.relevance_threshold,
+                    "scores": [c["confidence_percent"] for c in context_list],
+                    "retrieval_mode": self._get_retrieval_mode_display(),
+                }
+                return {
+                    "question": question,
+                    "answer": refusal,
+                    "context": context_list,
+                    "retrieval_trace": retrieval_trace,
+                    "confidence_score": confidence_score,
+                    "grounded": False,
+                    "success": False,
+                }
 
             docs = [doc for doc, _ in unique_scored]
             context = "\n---\n".join(
@@ -257,16 +349,13 @@ class RAGPipeline:
             # Fix 5: retrieval trace for transparency
             retrieval_trace = {
                 "query": question,
+                "rewritten_query": rewritten_query,
                 "chunks_retrieved": len(unique_scored),
                 "chunks_before_dedup": len(scored_docs),
                 "duplicates_removed": len(scored_docs) - len(unique_scored),
                 "scores": [c["confidence_percent"] for c in context_list],
+                "retrieval_mode": self._get_retrieval_mode_display(),
             }
-
-            try:
-                self.history.add_entry(question=question, answer=answer, context=context_list)
-            except Exception:
-                logger.exception("Failed to persist conversation entry")
 
             # Answer confidence scoring
             confidence_score = self.confidence_scorer.score(
@@ -281,6 +370,7 @@ class RAGPipeline:
                 "context": context_list,
                 "retrieval_trace": retrieval_trace,
                 "confidence_score": confidence_score,
+                "grounded": True,
                 "success": True,
             }
 
@@ -291,6 +381,8 @@ class RAGPipeline:
                 "answer": f"Error processing query: {e}",
                 "context": [],
                 "retrieval_trace": {},
+                "confidence_score": {"composite_score": 0.0, "grade": "F"},
+                "grounded": False,
                 "success": False,
             }
 
@@ -392,16 +484,23 @@ class RAGPipeline:
 
     def get_document_versions(self, filename: str) -> list[dict]:
         """Return all versions for a given filename."""
-        return self.version_store.get_versions(filename)
-
+        return self.version_store.get_versions("default", filename)
+    
     def diff_document_versions(self, doc_id_a: str, doc_id_b: str) -> dict:
-        """Diff two document versions by their doc_ids."""
         doc_a = self.doc_store.get(doc_id_a)
         doc_b = self.doc_store.get(doc_id_b)
         if not doc_a or not doc_b:
             return {"success": False, "error": "One or both documents not found."}
-        diff = self.version_store.diff_versions(doc_a["full_text"], doc_b["full_text"])
-        return {"success": True, "diff": diff, "doc_a": doc_a["filename"], "doc_b": doc_b["filename"]}
+        a_versions = self.version_store.get_versions("default", doc_a["filename"])
+        b_versions = self.version_store.get_versions("default", doc_b["filename"])
+        return {
+            "success": True,
+            "doc_a": doc_a["filename"],
+            "doc_b": doc_b["filename"],
+            "doc_a_versions": a_versions,
+            "doc_b_versions": b_versions,
+            "char_diff": len(doc_b["full_text"]) - len(doc_a["full_text"]),
+        }
 
     def get_document_tables(self, doc_id: str) -> dict:
         """Extract tables from a document's source PDF."""
