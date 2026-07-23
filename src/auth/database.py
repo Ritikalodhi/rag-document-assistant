@@ -2,8 +2,9 @@
 import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
+from src.config import DATA_DIR
 
-DB_PATH = Path("data/users.db")
+DB_PATH = DATA_DIR / "users.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -44,7 +45,19 @@ def get_user_by_id(user_id: str):
         return dict(row) if row else None
 
 
+def get_user_by_username(username: str):
+    """Return a user dict by username, or None if not found."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        return dict(row) if row else None
+
+
 def create_user(user_id: str, email: str, username: str, hashed_password: str, created_at: str):
+    """Create a user. Raises ValueError if username or email already exists."""
+    if get_user_by_username(username) is not None:
+        raise ValueError("Username already taken")
+    if get_user_by_email(email) is not None:
+        raise ValueError("Email already registered")
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO users (id, email, username, hashed_password, created_at) VALUES (?, ?, ?, ?, ?)",

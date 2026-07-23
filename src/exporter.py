@@ -1,6 +1,11 @@
-"""Export features: summary, study notes, chat history → Markdown or PDF."""
+"""Export features: summary, study notes, chat history → Markdown or PDF.
+
+PDF export uses DejaVuSans TTF for Unicode support (non-Latin text,
+smart quotes, mathematical symbols, etc.).
+"""
 
 from datetime import datetime, timezone
+from pathlib import Path
 from loguru import logger
 
 try:
@@ -9,6 +14,10 @@ try:
 except ImportError:
     FPDF_AVAILABLE = False
     logger.warning("fpdf2 not installed. Run: pip install fpdf2")
+
+
+# Path to bundled DejaVuSans font
+_DEJAVU_PATH = Path(__file__).parent.parent / "fonts" / "DejaVuSans.ttf"
 
 
 def _to_markdown_summary(filename: str, summary: dict) -> str:
@@ -65,27 +74,41 @@ def export_markdown(export_type: str, data: dict) -> str:
     raise ValueError(f"Unknown export type: {export_type}")
 
 
+def _init_pdf() -> "FPDF":
+    """Create an FPDF instance with Unicode support (DejaVuSans if available)."""
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    if _DEJAVU_PATH.exists():
+        pdf.add_font("DejaVu", "", str(_DEJAVU_PATH), uni=True)
+        pdf.add_font("DejaVu", "B", str(_DEJAVU_PATH), uni=True)  # fpdf2 uses style via add_font
+        pdf.set_font("DejaVu", size=11)
+    else:
+        logger.warning("DejaVuSans.ttf not found at %s — PDF export may not render non-Latin text correctly", _DEJAVU_PATH)
+        pdf.set_font("Helvetica", size=11)
+
+    return pdf
+
+
 def export_pdf(export_type: str, data: dict) -> bytes:
     """Return PDF bytes for the given export type."""
     if not FPDF_AVAILABLE:
         raise RuntimeError("fpdf2 not installed. Run: pip install fpdf2")
 
     md = export_markdown(export_type, data)
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf = _init_pdf()
     pdf.add_page()
-    pdf.set_font("Helvetica", size=11)
 
     for line in md.split("\n"):
         clean = line.replace("**", "").replace("✓", "[correct]").replace("##", "").replace("#", "").strip()
         if line.startswith("# "):
-            pdf.set_font("Helvetica", "B", 16)
+            pdf.set_font(pdf.font_family, "B", 16)
             pdf.cell(0, 10, clean, ln=True)
-            pdf.set_font("Helvetica", size=11)
+            pdf.set_font(pdf.font_family, size=11)
         elif line.startswith("## "):
-            pdf.set_font("Helvetica", "B", 13)
+            pdf.set_font(pdf.font_family, "B", 13)
             pdf.cell(0, 8, clean, ln=True)
-            pdf.set_font("Helvetica", size=11)
+            pdf.set_font(pdf.font_family, size=11)
         elif line.startswith("---"):
             pdf.ln(2)
             pdf.set_draw_color(200, 200, 200)

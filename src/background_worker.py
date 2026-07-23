@@ -1,4 +1,4 @@
-"""Simple background worker for async document ingestion jobs."""
+"""Background worker for async document ingestion with stage tracking and retry."""
 
 import asyncio
 import os
@@ -10,15 +10,21 @@ from src.async_jobs import AsyncJobStore
 from src.rag_pipeline import RAGPipeline
 from src.config import DOCUMENT_DIR
 
+# Max retries for transient failures
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 2
+
 
 class BackgroundWorker:
-    """Processes queued ingestion jobs in a background loop."""
+    """Processes queued ingestion jobs in a background loop with retry support."""
 
     def __init__(self, rag: RAGPipeline, job_store: AsyncJobStore):
         self.rag = rag
         self.job_store = job_store
         self._running = False
         self._task: asyncio.Task | None = None
+        # Track retries per job
+        self._retries: dict[str, int] = {}
 
     async def start(self) -> None:
         if self._running:
@@ -56,15 +62,54 @@ class BackgroundWorker:
             return
 
         try:
-            self.job_store.update_job(job_id, status="processing", progress=25)
-            result = self.rag.add_document(str(file_path), collection_id=job.get("collection_id"))
+            # Stage 1: Parse
+            self.job_store.set_stage(job_id, "parsing")
+            await asyncio.sleep(0)  # yield control
+
+            # Stage 2: Chunking (handled inside add_document)
+            self.job_store.set_stage(job_id, "chunking")
+            await asyncio.sleep(0)
+
+            # Stage 3: Embedding
+            self.job_store.set_stage(job_id, "embedding")
+            await asyncio.sleep(0)
+
+            # Stage 4: Indexing
+            self.job_store.set_stage(job_id, "indexing")
+
+            # Offload the synchronous CPU/IO-heavy add_document to a thread
+            # so we don't block the FastAPI event loop for all users.
+            result = await asyncio.to_thread(
+                self.rag.add_document,
+                job.get("user_id", ""),
+                str(file_path),
+                collection_id=job.get("collection_id"),
+            )
+
             if result.get("success"):
                 self.job_store.complete_job(job_id, result=result)
+                self._retries.pop(job_id, None)
             else:
-                self.job_store.fail_job(job_id, result.get("error", "processing failed"))
+                self._handle_failure(job_id, result.get("error", "processing failed"))
         except Exception as exc:
-            logger.exception("Background worker failed")
-            self.job_store.fail_job(job_id, str(exc))
+            logger.exception(f"Background worker failed for job {job_id}")
+            self._handle_failure(job_id, str(exc))
         finally:
-            if file_path.exists():
+            # Only clean up the source file once the job is truly done —
+            # a job re-queued for retry still needs it.
+            job = self.job_store.get_job(job_id)
+            if job and job.get("status") in ("completed", "failed") and file_path.exists():
                 file_path.unlink(missing_ok=True)
+
+    def _handle_failure(self, job_id: str, error: str) -> None:
+        """Retry transient failures up to MAX_RETRIES, then permanently fail."""
+        retry_count = self._retries.get(job_id, 0) + 1
+        if retry_count <= MAX_RETRIES:
+            self._retries[job_id] = retry_count
+            logger.warning(f"Job {job_id} failed (attempt {retry_count}/{MAX_RETRIES}), will retry: {error}")
+            # Reset to queued for retry
+            self.job_store.update_job(job_id, status="queued", stage="queued", progress=0, error=None)
+        else:
+            logger.error(f"Job {job_id} failed after {MAX_RETRIES} attempts: {error}")
+            self.job_store.fail_job(job_id, error)
+            self._retries.pop(job_id, None)

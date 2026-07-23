@@ -6,14 +6,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 from loguru import logger
-from src.config import DATA_DIR
+from filelock import FileLock
+from src import config
 
 
 class DocumentVersionStore:
     """Tracks multiple versions of the same document (by filename)."""
 
     def __init__(self, filename: str = "doc_versions.json"):
-        self.path = DATA_DIR / filename
+        self.path = config.DATA_DIR / filename
+        self._lock = FileLock(str(self.path) + ".lock")
         if not self.path.exists():
             self._write({})
 
@@ -57,28 +59,29 @@ class DocumentVersionStore:
                 "content_changed": bool,
             }
         """
-        data = self._read()
-        key = f"{user_id}:{filename}"
-        content_hash = self._content_hash(full_text)
+        with self._lock:
+            data = self._read()
+            key = f"{user_id}:{filename}"
+            content_hash = self._content_hash(full_text)
 
-        versions = data.get(key, [])
-        is_new = len(versions) == 0
-        content_changed = True
+            versions = data.get(key, [])
+            is_new = len(versions) == 0
+            content_changed = True
 
-        if versions:
-            last = versions[-1]
-            content_changed = last["content_hash"] != content_hash
+            if versions:
+                last = versions[-1]
+                content_changed = last["content_hash"] != content_hash
 
-        version_entry = {
-            "version": len(versions) + 1,
-            "doc_id": doc_id,
-            "content_hash": content_hash,
-            "char_count": len(full_text),
-            "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        }
-        versions.append(version_entry)
-        data[key] = versions
-        self._write(data)
+            version_entry = {
+                "version": len(versions) + 1,
+                "doc_id": doc_id,
+                "content_hash": content_hash,
+                "char_count": len(full_text),
+                "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            }
+            versions.append(version_entry)
+            data[key] = versions
+            self._write(data)
 
         return {
             "is_new": is_new,
@@ -88,8 +91,9 @@ class DocumentVersionStore:
         }
 
     def get_versions(self, user_id: str, filename: str) -> list[dict]:
-        data = self._read()
-        return data.get(f"{user_id}:{filename}", [])
+        with self._lock:
+            data = self._read()
+            return data.get(f"{user_id}:{filename}", [])
 
     def compare_versions(self, user_id: str, filename: str, v1: int, v2: int) -> dict:
         """Return a simple diff summary between two versions."""

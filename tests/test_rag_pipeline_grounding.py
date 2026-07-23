@@ -8,22 +8,29 @@ class DummyRetriever:
         self._results = results
         self.last_query = None
 
-    def retrieve_with_scores(self, query, k=4):
+    def retrieve_with_scores(self, query, k=4, filter=None):
         self.last_query = query
+        self.last_filter = filter
         return self._results
+
+    def retrieve_reranked(self, query, k=4, filter=None):
+        return self.retrieve_with_scores(query, k, filter=filter)
 
 
 class DummyLLMManager:
-    def generate_answer(self, context, question):
+    def generate_answer(self, context, question, history=""):
         return "fake answer"
 
-    def stream_answer(self, context, question):
+    def stream_answer(self, context, question, history=""):
         yield "fake answer"
 
 
 class DummyHistory:
     def add_entry(self, **kwargs):
         return None
+
+    def get_history(self, user_id=None, limit=None):
+        return []
 
 
 class DummyConfidenceScorer:
@@ -40,13 +47,16 @@ def make_pipeline(results):
     pipeline._detect_section = lambda question: None
     pipeline.relevance_threshold = 70.0
     pipeline.strict_grounding = True
+    pipeline.use_reranker = False   # tests use retrieve_with_scores directly
+    pipeline.memory_window = 10     # tests have no real history, so this is inert
+    pipeline._get_retrieval_mode_display = lambda: "hybrid (dense + bm25)"
     return pipeline
 
 
 def test_query_refuses_when_best_context_is_below_threshold():
     pipeline = make_pipeline([(Document(page_content="weak chunk", metadata={"source": "a.pdf"}), 40.0)])
 
-    result = pipeline.query("What is the conclusion?")
+    result = pipeline.query(user_id="test_user", question="What is the conclusion?")
 
     assert result["success"] is False
     assert result["grounded"] is False
@@ -56,7 +66,7 @@ def test_query_refuses_when_best_context_is_below_threshold():
 def test_query_answers_when_context_is_above_threshold():
     pipeline = make_pipeline([(Document(page_content="strong chunk", metadata={"source": "a.pdf"}), 85.0)])
 
-    result = pipeline.query("What is the conclusion?")
+    result = pipeline.query(user_id="test_user", question="What is the conclusion?")
 
     assert result["success"] is True
     assert result["grounded"] is True
@@ -68,7 +78,7 @@ def test_query_rewrites_questions_and_records_retrieval_metadata():
     pipeline = make_pipeline([(Document(page_content="strong chunk", metadata={"source": "a.pdf"}), 85.0)])
     pipeline.retriever = retriever
 
-    result = pipeline.query("What is the conclusion?")
+    result = pipeline.query(user_id="test_user", question="What is the conclusion?")
 
     assert retriever.last_query is not None
     assert "conclusion" in retriever.last_query.lower()

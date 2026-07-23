@@ -1,6 +1,8 @@
 """FastAPI application for RAG Document Assistant."""
 
 import os
+import sys
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,10 +12,11 @@ from pydantic import BaseModel
 from loguru import logger
 
 from src.rag_pipeline import RAGPipeline
-from src.config import DOCUMENT_DIR, SUPPORTED_FILE_TYPES, MAX_FILE_SIZE
+from src.config import DOCUMENT_DIR, SUPPORTED_FILE_TYPES, MAX_FILE_SIZE, LOG_LEVEL, LLM_PROVIDER, ALLOWED_ORIGINS
 from src.auth import auth_router, get_current_user_id
 from src.async_jobs import AsyncJobStore
 from src.background_worker import BackgroundWorker
+from src.input_sanitizer import is_injection_attempt, sanitize_question
 
 try:
     import redis
@@ -22,6 +25,43 @@ except ImportError:  # pragma: no cover - optional dependency
 
 rag: RAGPipeline | None = None
 worker: BackgroundWorker | None = None
+
+
+def _setup_logging() -> None:
+    """Configure structured logging with loguru."""
+    logger.remove()
+    log_format = (
+        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+        "<level>{message}</level>"
+    )
+    logger.add(sys.stderr, format=log_format, level=LOG_LEVEL, colorize=True)
+    logger.add(
+        "logs/rag_{time:YYYY-MM-DD}.log",
+        format="{time} | {level} | {name}:{function}:{line} | {message}",
+        level="DEBUG",
+        rotation="50 MB",
+        retention="30 days",
+    )
+
+
+def _validate_environment() -> None:
+    """Validate required environment variables at startup."""
+    required_vars = []
+    if LLM_PROVIDER == "openai":
+        required_vars.append("OPENAI_API_KEY")
+    elif LLM_PROVIDER == "gemini":
+        required_vars.append("GEMINI_API_KEY")
+
+    missing = [var for var in required_vars if not os.getenv(var)]
+    if missing:
+        logger.warning(f"Missing required environment variables: {', '.join(missing)}")
+
+    if not os.getenv("JWT_SECRET_KEY") or os.getenv("JWT_SECRET_KEY") == "CHANGE_ME_IN_ENV":
+        logger.warning("JWT_SECRET_KEY is using default value. Set it in production!")
+
+    logger.info("Environment validation complete")
 
 
 def _build_job_store() -> AsyncJobStore:
@@ -46,6 +86,8 @@ job_store = _build_job_store()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global rag, worker
+    _setup_logging()
+    _validate_environment()
     logger.info("Starting RAG Document Assistant…")
     rag = RAGPipeline()
     worker = BackgroundWorker(rag=rag, job_store=job_store)
@@ -57,16 +99,33 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down")
 
 
-app = FastAPI(title="RAG Document Assistant", description="Personal Document Q&A System", version="0.4.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+APP_VERSION = "0.5.0"
+app = FastAPI(title="RAG Document Assistant", description="Personal Document Q&A System", version=APP_VERSION, lifespan=lifespan)
+
+# CORS: use explicit origins from config, not wildcard
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
+class FilterCriteria(BaseModel):
+    document_id: str | None = None
+    filename: str | None = None
+    collection: str | None = None
+    tags: list[str] | None = None
+    user: str | None = None
+
 class QueryRequest(BaseModel):
     question: str
     k: int = 4
+    filter: FilterCriteria | None = None
 
 class ContextItem(BaseModel):
     content: str
@@ -99,7 +158,8 @@ class AsyncUploadResponse(BaseModel):
 class AsyncJobStatusResponse(BaseModel):
     job_id: str
     status: str
-    progress: int
+    stage: str = "queued"
+    progress: int = 0
     filename: str
     collection_id: str | None = None
     result: dict | None = None
@@ -149,7 +209,7 @@ class CrossDocRequest(BaseModel):
 
 @app.get("/", tags=["Health"])
 async def root():
-    return {"status": "ok", "message": "RAG Document Assistant is running", "version": "0.4.0"}
+    return {"status": "ok", "message": "RAG Document Assistant is running", "version": APP_VERSION}
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():
@@ -160,20 +220,29 @@ async def health_check():
 
 @app.post("/api/upload", response_model=UploadResponse, tags=["Documents"])
 async def upload_document(file: UploadFile = File(...), collection_id: str | None = None, user_id: str = Depends(get_current_user_id)):
-    file_ext = Path(file.filename).suffix.lower()
+    # Path traversal protection: strip any directory components
+    safe_name = Path(file.filename).name
+    if not safe_name or safe_name != file.filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    file_ext = Path(safe_name).suffix.lower()
     if file_ext not in SUPPORTED_FILE_TYPES:
         raise HTTPException(status_code=400, detail=f"Unsupported file type '{file_ext}'.")
+
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail=f"File exceeds {MAX_FILE_SIZE // (1024*1024)} MB limit.")
-    file_path = DOCUMENT_DIR / file.filename
+
+    # Use UUID prefix to avoid filename collisions between users/uploads
+    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+    file_path = DOCUMENT_DIR / unique_name
     succeeded = False
     try:
         file_path.write_bytes(contents)
-        result = rag.add_document(str(file_path), collection_id=collection_id)
+        result = rag.add_document(user_id=user_id, file_path=str(file_path), collection_id=collection_id)
         if result["success"]:
             succeeded = True
-            return UploadResponse(filename=file.filename, success=True, message="Uploaded successfully",
+            return UploadResponse(filename=safe_name, success=True, message="Uploaded successfully",
                 chunks=result["chunks"], doc_id=result.get("doc_id"), collection_id=result.get("collection_id"))
         raise HTTPException(status_code=500, detail=f"Processing error: {result['error']}")
     except HTTPException:
@@ -187,7 +256,12 @@ async def upload_document(file: UploadFile = File(...), collection_id: str | Non
 
 @app.post("/api/upload/async", response_model=AsyncUploadResponse, status_code=202, tags=["Documents"])
 async def upload_document_async(file: UploadFile = File(...), collection_id: str | None = None, user_id: str = Depends(get_current_user_id)):
-    file_ext = Path(file.filename).suffix.lower()
+    # Path traversal protection
+    safe_name = Path(file.filename).name
+    if not safe_name or safe_name != file.filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    file_ext = Path(safe_name).suffix.lower()
     if file_ext not in SUPPORTED_FILE_TYPES:
         raise HTTPException(status_code=400, detail=f"Unsupported file type '{file_ext}'.")
 
@@ -195,13 +269,15 @@ async def upload_document_async(file: UploadFile = File(...), collection_id: str
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail=f"File exceeds {MAX_FILE_SIZE // (1024*1024)} MB limit.")
 
-    file_path = DOCUMENT_DIR / file.filename
+    # Use UUID prefix to avoid filename collisions
+    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+    file_path = DOCUMENT_DIR / unique_name
     try:
         file_path.write_bytes(contents)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    job_id = job_store.create_job(file.filename, collection_id)
+    job_id = job_store.create_job(user_id=user_id, filename=unique_name, collection_id=collection_id)
 
     return AsyncUploadResponse(job_id=job_id, status="queued", message="Upload accepted and is being processed.")
 
@@ -210,19 +286,22 @@ async def get_async_job_status(job_id: str, user_id: str = Depends(get_current_u
     job = job_store.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found.")
+    # Ownership check: don't reveal existence of other users' jobs
+    if job.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Job not found.")
     return AsyncJobStatusResponse(**job)
 
 @app.get("/api/documents", tags=["Documents"])
 async def list_documents(user_id: str = Depends(get_current_user_id)):
     try:
-        return {"documents": rag.list_documents()}
+        return {"documents": rag.list_documents(user_id=user_id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/documents/{doc_id}", tags=["Documents"])
 async def get_document(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        doc = rag.get_document(doc_id)
+        doc = rag.get_document(user_id=user_id, doc_id=doc_id)
         if doc is None:
             raise HTTPException(status_code=404, detail="Document not found.")
         return doc
@@ -234,7 +313,7 @@ async def get_document(doc_id: str, user_id: str = Depends(get_current_user_id))
 @app.delete("/api/documents/{doc_id}", tags=["Documents"])
 async def delete_document(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.delete_document(doc_id)
+        result = rag.delete_document(user_id=user_id, doc_id=doc_id)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
@@ -246,7 +325,7 @@ async def delete_document(doc_id: str, user_id: str = Depends(get_current_user_i
 @app.post("/api/documents/{doc_id}/summarize", response_model=SummaryResponse, tags=["Documents"])
 async def summarize_document(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.summarize_document(doc_id)
+        result = rag.summarize_document(user_id=user_id, doc_id=doc_id)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return SummaryResponse(**result)
@@ -258,7 +337,7 @@ async def summarize_document(doc_id: str, user_id: str = Depends(get_current_use
 @app.get("/api/documents/{doc_id}/suggested-questions", response_model=SuggestedQuestionsResponse, tags=["Documents"])
 async def suggested_questions(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.suggest_questions(doc_id)
+        result = rag.suggest_questions(user_id=user_id, doc_id=doc_id)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return SuggestedQuestionsResponse(**result)
@@ -270,7 +349,7 @@ async def suggested_questions(doc_id: str, user_id: str = Depends(get_current_us
 @app.get("/api/documents/{doc_id}/study-notes", tags=["Documents"])
 async def study_notes(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.generate_study_notes(doc_id)
+        result = rag.generate_study_notes(user_id=user_id, doc_id=doc_id)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
@@ -282,7 +361,7 @@ async def study_notes(doc_id: str, user_id: str = Depends(get_current_user_id)):
 @app.get("/api/documents/{doc_id}/tables", tags=["Documents"])
 async def get_tables(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.get_document_tables(doc_id)
+        result = rag.get_document_tables(user_id=user_id, doc_id=doc_id)
         if not result["success"]:
             raise HTTPException(status_code=400, detail=result["error"])
         return result
@@ -294,7 +373,7 @@ async def get_tables(doc_id: str, user_id: str = Depends(get_current_user_id)):
 @app.post("/api/documents/compare", response_model=CompareResponse, tags=["Documents"])
 async def compare_documents(request: CompareRequest, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.compare_documents(request.document_a, request.document_b)
+        result = rag.compare_documents(user_id=user_id, identifier_a=request.document_a, identifier_b=request.document_b)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return CompareResponse(**result)
@@ -306,7 +385,7 @@ async def compare_documents(request: CompareRequest, user_id: str = Depends(get_
 @app.post("/api/documents/cross-analysis", tags=["Documents"])
 async def cross_document_analysis(request: CrossDocRequest, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.cross_document_analysis(request.doc_ids)
+        result = rag.cross_document_analysis(user_id=user_id, doc_ids=request.doc_ids)
         if not result["success"]:
             raise HTTPException(status_code=400, detail=result["error"])
         return result
@@ -322,7 +401,7 @@ async def cross_document_analysis(request: CrossDocRequest, user_id: str = Depen
 async def export_summary(doc_id: str, format: str = "markdown", user_id: str = Depends(get_current_user_id)):
     from fastapi.responses import Response
     try:
-        result = rag.export_summary(doc_id, as_pdf=(format == "pdf"))
+        result = rag.export_summary(user_id=user_id, doc_id=doc_id, as_pdf=(format == "pdf"))
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         if format == "pdf":
@@ -339,7 +418,7 @@ async def export_summary(doc_id: str, format: str = "markdown", user_id: str = D
 async def export_history(format: str = "markdown", limit: int = 100, user_id: str = Depends(get_current_user_id)):
     from fastapi.responses import Response
     try:
-        result = rag.export_history(limit=limit, as_pdf=(format == "pdf"))
+        result = rag.export_history(user_id=user_id, limit=limit, as_pdf=(format == "pdf"))
         if format == "pdf":
             return Response(content=result["pdf"], media_type="application/pdf",
                 headers={"Content-Disposition": "attachment; filename=history.pdf"})
@@ -354,10 +433,10 @@ async def export_history(format: str = "markdown", limit: int = 100, user_id: st
 @app.get("/api/documents/{doc_id}/versions", tags=["Versioning"])
 async def get_versions(doc_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        doc = rag.get_document(doc_id)
+        doc = rag.get_document(user_id=user_id, doc_id=doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found.")
-        versions = rag.version_store.get_versions("default", doc["filename"])
+        versions = rag.version_store.get_versions(user_id, doc["filename"])
         return {"doc_id": doc_id, "filename": doc["filename"], "versions": versions}
     except HTTPException:
         raise
@@ -367,10 +446,10 @@ async def get_versions(doc_id: str, user_id: str = Depends(get_current_user_id))
 @app.get("/api/documents/{doc_id}/versions/compare", tags=["Versioning"])
 async def compare_versions(doc_id: str, v1: int = 1, v2: int = 2, user_id: str = Depends(get_current_user_id)):
     try:
-        doc = rag.get_document(doc_id)
+        doc = rag.get_document(user_id=user_id, doc_id=doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found.")
-        result = rag.version_store.compare_versions("default", doc["filename"], v1, v2)
+        result = rag.diff_document_versions(user_id=user_id, doc_id_a=doc_id, doc_id_b=doc_id)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
@@ -386,14 +465,15 @@ async def compare_versions(doc_id: str, v1: int = 1, v2: int = 2, user_id: str =
 async def stream_query(question: str, k: int = 4, user_id: str = Depends(get_current_user_id)):
     from fastapi.responses import StreamingResponse
     def generate():
-        yield from rag.stream_query(question, k=k)
+        yield from rag.stream_query(user_id=user_id, question=question, k=k)
     return StreamingResponse(generate(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @app.post("/api/query", response_model=QueryResponse, tags=["Query"])
 async def query_documents(request: QueryRequest, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.query(request.question, k=request.k)
+        filter_kwargs = request.filter.model_dump(exclude_none=True) if request.filter else None
+        result = rag.query(user_id=user_id, question=request.question, k=request.k, filter_kwargs=filter_kwargs)
         return QueryResponse(**result)
     except Exception as e:
         logger.error(f"Query error: {e}")
@@ -405,7 +485,7 @@ async def query_documents(request: QueryRequest, user_id: str = Depends(get_curr
 @app.get("/api/analytics", tags=["System"])
 async def get_analytics(user_id: str = Depends(get_current_user_id)):
     try:
-        return rag.get_analytics()
+        return rag.get_analytics(user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -422,21 +502,21 @@ async def get_statistics():
 @app.post("/api/collections", tags=["Collections"])
 async def create_collection(request: CreateCollectionRequest, user_id: str = Depends(get_current_user_id)):
     try:
-        return rag.create_collection(request.name)
+        return rag.create_collection(user_id=user_id, name=request.name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/collections", tags=["Collections"])
 async def list_collections(user_id: str = Depends(get_current_user_id)):
     try:
-        return {"collections": rag.list_collections()}
+        return {"collections": rag.list_collections(user_id=user_id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/collections/{collection_id}", tags=["Collections"])
 async def get_collection(collection_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.get_collection(collection_id)
+        result = rag.get_collection(user_id=user_id, collection_id=collection_id)
         if result is None:
             raise HTTPException(status_code=404, detail="Collection not found.")
         return result
@@ -448,7 +528,7 @@ async def get_collection(collection_id: str, user_id: str = Depends(get_current_
 @app.patch("/api/collections/{collection_id}", tags=["Collections"])
 async def rename_collection(collection_id: str, request: RenameCollectionRequest, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.rename_collection(collection_id, request.name)
+        result = rag.rename_collection(user_id=user_id, collection_id=collection_id, new_name=request.name)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
@@ -460,7 +540,7 @@ async def rename_collection(collection_id: str, request: RenameCollectionRequest
 @app.delete("/api/collections/{collection_id}", tags=["Collections"])
 async def delete_collection(collection_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = rag.delete_collection(collection_id)
+        result = rag.delete_collection(user_id=user_id, collection_id=collection_id)
         if not result["success"]:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
@@ -475,7 +555,7 @@ async def delete_collection(collection_id: str, user_id: str = Depends(get_curre
 @app.get("/api/conversations", tags=["Conversations"])
 async def get_conversations(limit: int = Query(default=100, ge=1, le=1000), user_id: str = Depends(get_current_user_id)):
     try:
-        history = rag.history.get_history(limit)
+        history = rag.history.get_history(user_id=user_id, limit=limit)
         return {"conversations": history, "count": len(history)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -483,7 +563,7 @@ async def get_conversations(limit: int = Query(default=100, ge=1, le=1000), user
 @app.delete("/api/conversations/{entry_id}", tags=["Conversations"])
 async def delete_conversation(entry_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        ok = rag.history.delete_entry(entry_id)
+        ok = rag.history.delete_entry(entry_id, user_id=user_id)
         if not ok:
             raise HTTPException(status_code=404, detail="Conversation not found.")
         return {"success": True}
@@ -495,7 +575,7 @@ async def delete_conversation(entry_id: str, user_id: str = Depends(get_current_
 @app.post("/api/conversations/clear", tags=["Conversations"])
 async def clear_conversations(user_id: str = Depends(get_current_user_id)):
     try:
-        rag.history.clear_history()
+        rag.history.clear_history(user_id=user_id)
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

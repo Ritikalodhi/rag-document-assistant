@@ -1,11 +1,13 @@
-
 """Configuration management for RAG Document Assistant."""
  
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
  
 load_dotenv()
+
+logger = logging.getLogger(__name__)
  
 # ── Project paths ─────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -28,8 +30,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-pro").strip()
  
 # ── Validate keys at startup — fail fast with a clear message ─────────────────
-# BUG FIX: original used `if not KEY` which treats an empty string as missing.
-# We now also .strip() values above so "  " (whitespace) is caught too.
 if LLM_PROVIDER == "openai":
     if not OPENAI_API_KEY:
         raise ValueError(
@@ -48,12 +48,9 @@ else:
 # ── Chunking ──────────────────────────────────────────────────────────────────
 CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
+CHUNK_STRATEGY = os.getenv("CHUNK_STRATEGY", "recursive").lower().strip()
  
 # ── Vector DB ─────────────────────────────────────────────────────────────────
-# BUG FIX: original fell back to the *string* "./data/chroma_db" from the env,
-# which resolves relative to wherever uvicorn is run from — not the project root.
-# We now always resolve against the project-root-anchored CHROMA_DB_DIR so the
-# path is absolute and consistent regardless of the working directory.
 _chroma_env = os.getenv("CHROMA_PERSIST_DIR", "").strip()
 CHROMA_PERSIST_DIR = str(
     Path(_chroma_env).resolve() if _chroma_env else CHROMA_DB_DIR
@@ -63,6 +60,20 @@ CHROMA_PERSIST_DIR = str(
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
  
+# ── Cross-encoder Re-ranker ───────────────────────────────────────────────────
+RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "true").lower() in ("1", "true", "yes")
+RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2").strip()
+RERANKER_CANDIDATES = int(os.getenv("RERANKER_CANDIDATES", "30"))
+
+# ── Conversation Memory ───────────────────────────────────────────────────────
+MEMORY_WINDOW = int(os.getenv("MEMORY_WINDOW", "10"))        # last N exchanges to inject
+MEMORY_MAX_CHARS = int(os.getenv("MEMORY_MAX_CHARS", "2000"))  # truncate history string at this length
+
+# ── LLM Reliability ──────────────────────────────────────────────────────────
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
+LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "").strip() or None
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
  
@@ -76,3 +87,16 @@ SUPPORTED_FILE_TYPES = {
  
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
+# ── Environment ───────────────────────────────────────────────────────────────
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower().strip()
+
+# ── JWT Secret ────────────────────────────────────────────────────────────────
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_IN_ENV")
+if SECRET_KEY == "CHANGE_ME_IN_ENV":
+    if ENVIRONMENT == "production":
+        raise RuntimeError("JWT_SECRET_KEY must be set in production")
+    logger.warning("Using default JWT_SECRET_KEY — do not use in production")
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]

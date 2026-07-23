@@ -1,9 +1,17 @@
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from loguru import logger
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "CHANGE_ME_IN_ENV")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
+if not SECRET_KEY:
+    logger.warning(
+        "JWT_SECRET_KEY is not set. Using a default (insecure) key. "
+        "Set JWT_SECRET_KEY in your .env file for production."
+    )
+    SECRET_KEY = "CHANGE_ME_IN_ENV"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
