@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: 250 250 249;
+    --color-surface: 245 245 244;
+    --color-elevated: 255 255 255;
+    --color-border: 229 229 227;
+    --color-text: 23 23 22;
+    --color-text-secondary: 120 119 116;
+    --color-accent: 37 99 235;
+    --color-accent-hover: 29 78 216;
+    --color-accent-muted: 239 246 255;
+    --color-sidebar: 242 242 240;
+    --color-progress: 37 99 235;
+  }
+
+  .dark {
+    --color-bg: 9 9 9;
+    --color-surface: 21 21 21;
+    --color-elevated: 26 26 26;
+    --color-border: 41 41 41;
+    --color-text: 245 245 243;
+    --color-text-secondary: 168 168 164;
+    --color-accent: 96 165 250;
+    --color-accent-hover: 147 197 253;
+    --color-accent-muted: 15 23 42;
+    --color-sidebar: 17 17 17;
+    --color-progress: 96 165 250;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-[rgb(var(--color-bg))] text-[rgb(var(--color-text))] text-body;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fraunces', 'Newsreader', Georgia, serif;
+  }
+
+  code, pre {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+@layer components {
+  .focus-ring {
+    @apply outline-none ring-2 ring-[rgb(var(--color-accent))] ring-offset-2 ring-offset-[rgb(var(--color-bg))];
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded bg-[rgb(var(--color-border))];
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-body font-medium transition-colors duration-150;
+  }
+
+  .nav-item-inactive {
+    @apply text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))];
+  }
+
+  .nav-item-active {
+    @apply bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text))];
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--color-border));
+    border-radius: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
