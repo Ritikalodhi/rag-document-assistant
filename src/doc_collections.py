@@ -67,7 +67,10 @@ class CollectionStore:
                     [c for c in data.values() if c.get("user_id") == user_id],
                     key=lambda c: c["created_at"],
                 )
-            return sorted(data.values(), key=lambda c: c["created_at"])
+            return sorted(
+                (dict(c) for c in data.values()),
+                key=lambda c: c["created_at"],
+            )
 
     def get(self, collection_id: str, user_id: str | None = None) -> Optional[dict[str, Any]]:
         """Return a collection. If user_id provided, only if it belongs to that user."""

@@ -6,7 +6,7 @@ avoid needing a real embedding model or LLM API key.
 """
 
 from src.doc_store import DocumentStore
-from src.collections import CollectionStore
+from src.doc_collections import CollectionStore
 from src.history import ConversationManager
 from src.versioning import DocumentVersionStore
 

@@ -12,20 +12,37 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary:
-    'bg-[rgb(var(--color-accent))] text-white hover:bg-[rgb(var(--color-accent-hover))]',
-  secondary:
-    'border border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg))] hover:bg-[rgb(var(--color-surface))]',
-  ghost:
-    'bg-transparent hover:bg-[rgb(var(--color-surface))]',
-  danger:
-    'bg-red-600 text-white hover:bg-red-700',
+  primary: [
+    'bg-[rgb(var(--color-accent))] text-white',
+    'hover:bg-[rgb(var(--color-accent-hover))]',
+    'shadow-[0_1px_3px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.08)_inset]',
+    'hover:shadow-[0_2px_8px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)_inset]',
+    'active:scale-[0.97] active:shadow-none',
+  ].join(' '),
+  secondary: [
+    'border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]',
+    'text-[rgb(var(--color-text))]',
+    'hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-text-tertiary))]/50',
+    'shadow-[var(--shadow-sm)]',
+    'active:scale-[0.97]',
+  ].join(' '),
+  ghost: [
+    'bg-transparent text-[rgb(var(--color-text-secondary))]',
+    'hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))]',
+    'active:scale-[0.97]',
+  ].join(' '),
+  danger: [
+    'bg-[rgb(var(--color-danger))] text-white',
+    'hover:opacity-90',
+    'shadow-[0_1px_3px_rgba(0,0,0,0.2)]',
+    'active:scale-[0.97] active:shadow-none',
+  ].join(' '),
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-caption',
-  md: 'px-4 py-2 text-body',
-  lg: 'px-6 py-3 text-body',
+  sm: 'px-3 py-1.5 text-[13px] rounded-[8px] gap-1.5',
+  md: 'px-4 py-2 text-[14px] rounded-[10px] gap-2',
+  lg: 'px-5 py-2.5 text-[15px] rounded-[11px] gap-2',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -48,10 +65,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || isLoading}
         className={`
-          inline-flex items-center justify-center gap-2 rounded font-ui font-medium
-          transition-colors duration-150
+          inline-flex items-center justify-center font-ui font-semibold
+          transition-all duration-150 select-none
           focus-ring
-          disabled:opacity-50 disabled:cursor-not-allowed
+          disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}
@@ -60,7 +77,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isLoading ? (
           <svg
-            className="animate-spin h-4 w-4"
+            className="animate-spin h-4 w-4 flex-shrink-0"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"

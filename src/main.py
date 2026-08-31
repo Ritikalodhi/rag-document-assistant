@@ -6,13 +6,13 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from loguru import logger
 
 from src.rag_pipeline import RAGPipeline
-from src.config import DOCUMENT_DIR, SUPPORTED_FILE_TYPES, MAX_FILE_SIZE, LOG_LEVEL, LLM_PROVIDER, ALLOWED_ORIGINS
+from src.config import DOCUMENT_DIR, SUPPORTED_FILE_TYPES, MAX_FILE_SIZE, LOG_LEVEL, LLM_PROVIDER, ALLOWED_ORIGINS, TOP_K
 from src.auth import auth_router, get_current_user_id
 from src.async_jobs import AsyncJobStore
 from src.background_worker import BackgroundWorker
@@ -124,13 +124,18 @@ class FilterCriteria(BaseModel):
 
 class QueryRequest(BaseModel):
     question: str
-    k: int = 4
+    k: int = TOP_K
     filter: FilterCriteria | None = None
+    conversation_id: str | None = None
 
 class ContextItem(BaseModel):
     content: str
     source: str
-    confidence_percent: float
+    # Retrieval relevance (0-100): how relevant this chunk is to the query.
+    # NOT factual answer confidence.
+    retrieval_relevance: float | None = None
+    # Legacy field kept for backward compatibility with existing clients.
+    confidence_percent: float | None = None
     page: int | None = None
 
 class QueryResponse(BaseModel):
@@ -339,7 +344,15 @@ async def suggested_questions(doc_id: str, user_id: str = Depends(get_current_us
     try:
         result = rag.suggest_questions(user_id=user_id, doc_id=doc_id)
         if not result["success"]:
-            raise HTTPException(status_code=404, detail=result["error"])
+            error = result.get("error", "Unable to generate suggested questions.")
+            if "not found" in error.lower():
+                raise HTTPException(status_code=404, detail=error)
+            return SuggestedQuestionsResponse(
+                success=False,
+                filename=result.get("filename"),
+                questions=[],
+                error=error,
+            )
         return SuggestedQuestionsResponse(**result)
     except HTTPException:
         raise
@@ -462,10 +475,17 @@ async def compare_versions(doc_id: str, v1: int = 1, v2: int = 2, user_id: str =
 # ── Query ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/query/stream", tags=["Query"])
-async def stream_query(question: str, k: int = 4, user_id: str = Depends(get_current_user_id)):
+async def stream_query(question: str, k: int = TOP_K, filter: str | None = None, conversation_id: str | None = None, user_id: str = Depends(get_current_user_id)):
+    import json
+    filter_kwargs = None
+    if filter:
+        try:
+            filter_kwargs = json.loads(filter)
+        except Exception:
+            pass
     from fastapi.responses import StreamingResponse
     def generate():
-        yield from rag.stream_query(user_id=user_id, question=question, k=k)
+        yield from rag.stream_query(user_id=user_id, question=question, k=k, filter_kwargs=filter_kwargs, conversation_id=conversation_id)
     return StreamingResponse(generate(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
@@ -473,7 +493,7 @@ async def stream_query(question: str, k: int = 4, user_id: str = Depends(get_cur
 async def query_documents(request: QueryRequest, user_id: str = Depends(get_current_user_id)):
     try:
         filter_kwargs = request.filter.model_dump(exclude_none=True) if request.filter else None
-        result = rag.query(user_id=user_id, question=request.question, k=request.k, filter_kwargs=filter_kwargs)
+        result = rag.query(user_id=user_id, question=request.question, k=request.k, filter_kwargs=filter_kwargs, conversation_id=request.conversation_id)
         return QueryResponse(**result)
     except Exception as e:
         logger.error(f"Query error: {e}")
@@ -567,6 +587,22 @@ async def delete_conversation(entry_id: str, user_id: str = Depends(get_current_
         if not ok:
             raise HTTPException(status_code=404, detail="Conversation not found.")
         return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/conversations/{entry_id}/title", tags=["Conversations"])
+async def rename_conversation(entry_id: str, request: Request, user_id: str = Depends(get_current_user_id)):
+    try:
+        body = await request.json()
+        new_title = body.get("title", "").strip()
+        if not new_title:
+            raise HTTPException(status_code=422, detail="Title cannot be empty.")
+        ok = rag.history.rename_conversation(entry_id=entry_id, new_title=new_title, user_id=user_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        return {"success": True, "title": new_title}
     except HTTPException:
         raise
     except Exception as e:

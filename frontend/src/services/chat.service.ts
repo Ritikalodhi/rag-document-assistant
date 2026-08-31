@@ -5,6 +5,7 @@ import type {
   ConversationEntry,
   ConversationListResponse,
   SSEEvent,
+  SSEDoneEvent,
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
@@ -19,14 +20,19 @@ export const chatService = {
 
   streamQuery(
     question: string,
-    k = 4,
+    k: number | undefined,
     _filter: Record<string, unknown> | undefined,
+    conversationId: string | undefined,
     onEvent: (event: SSEEvent) => void,
-    onDone: () => void,
+    onDone: (payload?: SSEDoneEvent) => void,
     onError: (error: string) => void,
     signal?: AbortSignal,
   ): () => void {
-    const params = new URLSearchParams({ question, k: String(k) });
+    const params = new URLSearchParams({ question });
+    if (k !== undefined) params.append('k', String(k));
+    if (_filter) params.append('filter', JSON.stringify(_filter));
+    if (conversationId) params.append('conversation_id', conversationId);
+    
     const url = `${API_BASE_URL}${QUERY_PATH}/stream?${params}`;
 
     const controller = new AbortController();
@@ -87,7 +93,7 @@ export const chatService = {
             try {
               const event = JSON.parse(jsonStr) as SSEEvent;
               if (event.type === 'done') {
-                if (!cancelled) onDone();
+                if (!cancelled) onDone(event as SSEDoneEvent);
                 return;
               }
               if (!cancelled) onEvent(event);

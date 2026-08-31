@@ -95,6 +95,9 @@ dist/
 # Testing & Coverage
 # =========================
 .pytest_cache/
+codex_pytest_tmp/
+pytest_tmp/
+.pytest_tmp/
 .coverage
 htmlcov/
 .coverage.*
@@ -174,3 +177,4 @@ Thumbs.db
 # # OS
 # .DS_Store
 # Thumbs.db
+'.env' 

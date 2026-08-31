@@ -10,7 +10,7 @@ export function formatRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-export function groupConversationsByDate<T extends { id: string; question: string; created_at: string }>(
+export function groupConversationsByDate<T extends { id: string; created_at: string }>(
   convs: T[]
 ): Record<string, T[]> {
   const groups: Record<string, T[]> = {};

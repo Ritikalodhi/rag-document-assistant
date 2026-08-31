@@ -44,7 +44,7 @@ def make_pipeline(results):
     pipeline.llm_manager = DummyLLMManager()
     pipeline.history = DummyHistory()
     pipeline.confidence_scorer = DummyConfidenceScorer()
-    pipeline._detect_section = lambda question: None
+    pipeline._detect_sections = lambda question: []
     pipeline.relevance_threshold = 70.0
     pipeline.strict_grounding = True
     pipeline.use_reranker = False   # tests use retrieve_with_scores directly
@@ -84,3 +84,20 @@ def test_query_rewrites_questions_and_records_retrieval_metadata():
     assert "conclusion" in retriever.last_query.lower()
     assert "conclusion" in result["retrieval_trace"]["rewritten_query"].lower()
     assert result["retrieval_trace"]["retrieval_mode"] == "hybrid (dense + bm25)"
+
+
+def test_reranker_combine_allows_cross_encoder_demotion():
+    from src.reranker import CrossEncoderReranker
+    # Original retrieval score 80%, cross-encoder sigmoid 0.25 (typical for
+    # MS-MARCO on non-exact queries). The cross-encoder must be able to
+    # LOWER a poor retrieval match — no max(orig, blended) floor.
+    combined = CrossEncoderReranker._combine(80.0, 0.25)
+    assert combined < 0.80
+    # Strong agreement still yields a high ranking score.
+    assert CrossEncoderReranker._combine(80.0, 0.9) > 0.7
+
+
+def test_rewrite_query_preserves_what_all_queries():
+    pipeline = make_pipeline([])
+    rewritten = pipeline._rewrite_query("what all skills are there")
+    assert rewritten == "what all skills are there"

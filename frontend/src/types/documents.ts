@@ -104,6 +104,8 @@ export interface TableData {
   caption?: string;
   headers: string[];
   rows: string[][];
+  page?: number;
+  markdown?: string;
 }
 
 export interface DocumentVersion {

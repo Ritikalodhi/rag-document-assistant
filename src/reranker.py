@@ -33,12 +33,33 @@ class RerankerResult:
 
     document: Any          # LangChain Document
     original_score: float  # score from the first-stage retriever (0-100)
-    rerank_score: float    # cross-encoder score (0-1)
-    combined_score: float  # weighted combination used for final ordering
+    rerank_score: float    # sigmoid of cross-encoder logit (relative signal, NOT calibrated)
+    combined_score: float  # combined relevance, used ONLY for ranking
+
+    @property
+    def first_stage_relevance(self) -> float:
+        """Original first-stage retrieval relevance (0-100), preserved as-is."""
+        return round(self.original_score, 1)
+
+    @property
+    def rerank_signal(self) -> float:
+        """Raw cross-encoder sigmoid signal (0-1), preserved separately."""
+        return round(self.rerank_score, 4)
+
+    @property
+    def retrieval_relevance(self) -> float:
+        """How relevant this chunk is to the query (0-100) for display purposes.
+
+        This is a RETRIEVAL RELEVANCE score, not factual answer confidence.
+        It is the combined ranking score scaled to 0-100 — used for ordering,
+        not as a calibrated probability.
+        """
+        return round(self.combined_score * 100, 1)
 
     @property
     def confidence_percent(self) -> float:
-        return round(self.combined_score * 100, 1)
+        """Backward-compatible alias for :attr:`retrieval_relevance`."""
+        return self.retrieval_relevance
 
 
 # ── Main class ────────────────────────────────────────────────────────────────
@@ -96,9 +117,12 @@ class CrossEncoderReranker:
         if self._available:
             rerank_scores = self._score_batch(query, docs)
         else:
-            # Fallback: normalise original scores to 0-1 range
-            max_os = max(original_scores) if original_scores else 1.0
-            rerank_scores = [s / max_os for s in original_scores]
+            # Cross-encoder unavailable: there is no second-stage signal at
+            # all. Do NOT normalise relative candidate ranks into fake
+            # absolute relevance — preserve the original retrieval scores
+            # untouched so ordering and displayed relevance both reflect
+            # the first-stage retriever only.
+            rerank_scores = [1.0] * len(docs)
 
         # Build results
         results = [
@@ -159,11 +183,27 @@ class CrossEncoderReranker:
 
     @staticmethod
     def _combine(retrieval_score: float, rerank_score: float) -> float:
-        """Weighted combination: favour the reranker but keep retrieval signal.
+        """Combine first-stage retrieval relevance with cross-encoder relevance.
 
-        Formula: 0.3 * (retrieval / 100) + 0.7 * rerank_score
+        The result is a RANKING score only — it is NOT a calibrated
+        probability of correctness and must not be presented to users as
+        "answer confidence".
 
-        This biases toward the cross-encoder while preventing a candidate with
-        a near-zero retrieval score from jumping to the top purely on noise.
+        Design:
+        - ``retrieval_score`` is the 0-100 relevance from the first-stage
+          hybrid retriever (dense cosine-similarity based).
+        - ``rerank_score`` is the sigmoid of the cross-encoder logit, i.e. a
+          relative relevance signal in (0, 1). Sigmoids from MS-MARCO
+          cross-encoders are NOT calibrated probabilities, so we only use
+          this signal to re-order candidates, not to fabricate an absolute
+          confidence figure.
+        - The geometric mean is used instead of ``max(retrieval, blend)``:
+          the cross-encoder must be able to LOWER a candidate that the
+          first stage ranked highly but it judges irrelevant.
         """
-        return 0.3 * (retrieval_score / 100.0) + 0.7 * rerank_score
+        orig_norm = max(0.0, min(1.0, retrieval_score / 100.0))
+        rerank = max(0.0, min(1.0, rerank_score))
+        # Geometric mean punishes disagreement between the two signals in
+        # both directions (either signal alone cannot prop the score up).
+        return orig_norm * rerank
+

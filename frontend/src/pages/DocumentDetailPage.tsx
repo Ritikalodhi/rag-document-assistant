@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useDocumentMetadata, useDocuments } from '@/features/documents/hooks/useDocuments';
+import { useDocumentMetadata, useDocuments, useDeleteDocument } from '@/features/documents/hooks/useDocuments';
+import { setLastViewedDocId } from '@/utils/lastDocument';
+
 import {
   useDocumentSummary,
   useSuggestedQuestions,
@@ -8,7 +10,7 @@ import {
   useDocumentVersions,
   useDocumentTables,
 } from '@/features/documents/hooks/useDocumentDetail';
-import { Button, Badge, Skeleton, ErrorState } from '@/components/ui';
+import { Button, Badge, Skeleton, ErrorState, Dialog } from '@/components/ui';
 import { getFileType } from '@/utils/fileType';
 
 type Tab = 'summary' | 'questions' | 'study-notes' | 'tables' | 'versions';
@@ -17,10 +19,16 @@ export function DocumentDetailPage() {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('summary');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const deleteDoc = useDeleteDocument();
 
   const { data: documents } = useDocuments();
   const doc = documents?.find((d) => d.doc_id === docId);
   const { data: metadata } = useDocumentMetadata(docId ?? '');
+
+  useEffect(() => {
+    if (docId) setLastViewedDocId(docId);
+  }, [docId]);
 
   if (!docId) return <ErrorState title="Missing document ID" />;
 
@@ -45,8 +53,8 @@ export function DocumentDetailPage() {
       {/* Document header */}
       <div className="flex flex-col gap-4">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-[10px] bg-[rgb(var(--color-surface))] flex items-center justify-center flex-shrink-0 mt-1">
-            <svg className="w-6 h-6 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 rounded-[12px] flex items-center justify-center flex-shrink-0 mt-1 shadow-sm" style={{ background: 'linear-gradient(135deg, rgb(var(--color-accent))/15 0%, rgb(99,102,241)/15 100%)', border: '1px solid rgb(var(--color-accent))/20' }}>
+            <svg className="w-6 h-6 text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
@@ -88,12 +96,24 @@ export function DocumentDetailPage() {
           >
             Summarize
           </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            }
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            Delete
+          </Button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-[rgb(var(--color-border))]" role="tablist">
-        <nav className="flex gap-6 -mb-px overflow-x-auto scrollbar-thin">
+        <nav className="flex gap-1 -mb-px overflow-x-auto scrollbar-thin">
           {([
             { id: 'summary' as Tab, label: 'Summary' },
             { id: 'questions' as Tab, label: 'Questions' },
@@ -107,10 +127,10 @@ export function DocumentDetailPage() {
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[
-                'px-1 py-3 text-body font-medium border-b-2 transition-colors whitespace-nowrap',
+                'px-4 py-3 text-[14px] font-medium border-b-2 transition-all duration-150 whitespace-nowrap rounded-t-[6px]',
                 activeTab === tab.id
-                  ? 'border-[rgb(var(--color-accent))] text-[rgb(var(--color-text))]'
-                  : 'border-transparent text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))]',
+                  ? 'border-[rgb(var(--color-accent))] text-[rgb(var(--color-text))] bg-[rgb(var(--color-accent))]/5'
+                  : 'border-transparent text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))] hover:bg-[rgb(var(--color-surface))]/50',
               ].join(' ')}
             >
               {tab.label}
@@ -127,6 +147,28 @@ export function DocumentDetailPage() {
         {activeTab === 'tables' && <TablesSection docId={docId} />}
         {activeTab === 'versions' && <VersionsSection docId={docId} />}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} title="Delete document">
+        <p className="text-[14px] text-[rgb(var(--color-text-secondary))] mb-6">
+          Are you sure you want to delete <strong className="text-[rgb(var(--color-text))]">{filename}</strong>? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2.5">
+          <Button variant="secondary" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              deleteDoc.mutate(docId, {
+                onSuccess: () => navigate('/documents'),
+              });
+              setShowDeleteDialog(false);
+            }}
+            isLoading={deleteDoc.isPending}
+          >
+            Delete
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -462,10 +504,21 @@ function TablesSection({ docId }: { docId: string }) {
   }
 
   if (isError) {
+    const errorMsg = (error as any)?.response?.data?.detail ?? (error as Error)?.message ?? '';
+    const isNonPdf = errorMsg.toLowerCase().includes('pdf');
+    if (isNonPdf) {
+      return (
+        <div className="py-8 text-center">
+          <p className="text-body text-[rgb(var(--color-text-secondary))]">
+            Table extraction is only supported for PDF documents.
+          </p>
+        </div>
+      );
+    }
     return (
       <ErrorState
         title="Failed to load tables"
-        message={(error as Error)?.message ?? 'An unexpected error occurred.'}
+        message={errorMsg || 'An unexpected error occurred.'}
         onRetry={() => refetch()}
       />
     );
@@ -485,8 +538,8 @@ function TablesSection({ docId }: { docId: string }) {
     <div className="flex flex-col gap-6 py-2">
       <h3 className="text-h3 font-display font-semibold">Extracted Tables ({data.tables.length})</h3>
       <div className="flex flex-col gap-6">
-        {data.tables.map((table) => (
-          <div key={table.id} className="rounded-[10px] border border-[rgb(var(--color-border))] overflow-hidden">
+        {data.tables.map((table, index) => (
+          <div key={table.id || `table-${index}`} className="rounded-[10px] border border-[rgb(var(--color-border))] overflow-hidden">
             {table.caption && (
               <div className="px-4 pt-4 pb-2">
                 <p className="text-body font-medium">{table.caption}</p>
@@ -499,7 +552,7 @@ function TablesSection({ docId }: { docId: string }) {
                     {table.headers.map((header, i) => (
                       <th
                         key={i}
-                        className="px-4 py-3 text-left text-caption font-medium text-[rgb(var(--color-text-secondary))] border-b border-[rgb(var(--color-border))] whitespace-nowrap"
+                        className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-[rgb(var(--color-text-tertiary))] border-b border-[rgb(var(--color-border))] whitespace-nowrap"
                       >
                         {header}
                       </th>
@@ -510,12 +563,12 @@ function TablesSection({ docId }: { docId: string }) {
                   {table.rows.map((row, i) => (
                     <tr
                       key={i}
-                      className="border-b border-[rgb(var(--color-border))] last:border-b-0"
+                      className="border-b border-[rgb(var(--color-border))] last:border-b-0 hover:bg-[rgb(var(--color-surface))]/60 transition-colors"
                     >
                       {row.map((cell, j) => (
                         <td
                           key={j}
-                          className="px-4 py-3 text-body"
+                          className="px-4 py-3 text-[14px] text-[rgb(var(--color-text))]"
                         >
                           {cell}
                         </td>

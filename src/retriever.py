@@ -206,12 +206,66 @@ class VectorRetriever:
         reranked = self._reranker.rerank(query, candidates, top_k=k)
         return [(r.document, r.confidence_percent) for r in reranked]
 
+    def retrieve_tables(
+        self,
+        query: str,
+        k: int = 3,
+        filter: dict | None = None,
+    ) -> list[tuple]:
+        """Retrieve only atomic PDF table chunks.
+
+        Tables are indexed with ``content_type=table``. Restricting retrieval
+        to those chunks prevents prose chunks from displacing a comparison
+        table when the user asks for model/metric comparisons.
+        """
+        table_filter = self._combine_filter(
+            filter,
+            {"content_type": "table"},
+        )
+
+        # Expand the query with table-specific vocabulary. This improves both
+        # BM25 and dense retrieval without changing the user's actual question.
+        # The expansion terms cover every table type in the document (metrics,
+        # literature-survey rows, dataset splits, examples, and software
+        # tools) rather than only BLEU/METEOR terms, so a literature-survey
+        # question isn't diluted by irrelevant metric vocabulary.
+        table_query = (
+            f"{query}\n"
+            "TABLE COLUMNS ROW "
+            "Paper Title Ref Year Category Algorithm Dataset Results Drawbacks "
+            "Metric Value Version Purpose "
+            "Braj Input Reference Hindi Model Output BLEU Similarity "
+            "Training Set Validation Set Test Set"
+        )
+
+        # Retrieve a larger candidate pool first, then let the reranker (if
+        # available) narrow it down — this avoids a single noisy query
+        # accidentally excluding the correct table row.
+        candidates = self.retrieve_with_scores(
+            table_query,
+            k=max(k, 8),
+            filter=table_filter,
+        )
+        if not candidates:
+            return []
+
+        if not self._reranker.available:
+            return candidates[:k]
+
+        reranked = self._reranker.rerank(query, candidates, top_k=k)
+        return [(r.document, r.confidence_percent) for r in reranked]
+
     def retrieve_with_scores(self, query: str, k: int = 4, filter: dict | None = None) -> list[tuple]:
         """Hybrid RRF retrieval. Returns (Document, confidence_percent) pairs.
 
+        Phase 8 fix: returns ALL fused results (not just the top ``k``) so the
+        caller (reranker / multi-query merge) can work with a larger candidate
+        pool. The caller is responsible for capping to its final ``k``.
+
         Args:
             query: Search text.
-            k: Number of results to return.
+            k: Number of results to return (used as a hint for dense/sparse
+               fetch sizes, but the full fused list is returned).
             filter: Metadata filter dict in Chroma's format
                     (e.g. ``{"source": {"$in": ["/a.pdf", "/b.pdf"]}}``).
         """
@@ -230,7 +284,7 @@ class VectorRetriever:
             dense_conf[doc.page_content[:200]] = conf
 
         final = []
-        for doc, _ in fused[:k]:
+        for doc, _ in fused:
             confidence = dense_conf.get(doc.page_content[:200], 60.0 if mode == "bm25_fallback" else 50.0)
             final.append((doc, confidence))
 
@@ -239,14 +293,19 @@ class VectorRetriever:
 
     @staticmethod
     def _compose_results(dense_results: list[tuple], sparse_results: list[tuple], k: int = 4) -> tuple[list[tuple], str]:
-        """Combine dense and sparse results with a clear fallback mode."""
+        """Combine dense and sparse results with a clear fallback mode.
+
+        Phase 8 fix: returns ALL fused results (not capped at ``k``) so the
+        caller can work with a larger candidate pool. The caller is
+        responsible for capping to its final ``k``.
+        """
         if not dense_results and sparse_results:
-            return sparse_results[:k], "bm25_fallback"
+            return sparse_results, "bm25_fallback"
         if dense_results and not sparse_results:
-            return dense_results[:k], "dense_only"
+            return dense_results, "dense_only"
         if not dense_results and not sparse_results:
             return [], "empty"
-        return VectorRetriever._rrf(dense_results, sparse_results)[:k], "hybrid"
+        return VectorRetriever._rrf(dense_results, sparse_results), "hybrid"
 
     @staticmethod
     def _rrf(dense: list[tuple], sparse: list[tuple], k: int = 60) -> list[tuple]:
@@ -321,28 +380,30 @@ class VectorRetriever:
     def _filter_bm25_docs(docs: list[dict], filter: dict) -> list[dict]:
         """Apply a simple metadata filter to a list of BM25 doc dicts.
 
-        Supports exact-match keys (``{"source": "/a.pdf"}``) and
-        Chroma-style ``$in`` (``{"source": {"$in": ["/a.pdf", "/b.pdf"]}}``).
+        Supports exact-match keys (``{"source": "/a.pdf"}``),
+        Chroma-style ``$in`` (``{"source": {"$in": ["/a.pdf", "/b.pdf"]}}``),
+        and nested ``$and`` (``{"$and": [...]}``).
         """
+        def check_condition(meta: dict, condition: dict) -> bool:
+            if "$and" in condition:
+                return all(check_condition(meta, c) for c in condition["$and"])
+            
+            for key, val_cond in condition.items():
+                meta_val = meta.get(key)
+                if isinstance(val_cond, dict) and "$in" in val_cond:
+                    if meta_val not in val_cond["$in"]:
+                        return False
+                elif isinstance(val_cond, list):
+                    if meta_val not in val_cond:
+                        return False
+                else:
+                    if meta_val != val_cond:
+                        return False
+            return True
+
         result = []
         for d in docs:
-            meta = d.get("metadata", {})
-            match = True
-            for key, condition in filter.items():
-                val = meta.get(key)
-                if isinstance(condition, dict) and "$in" in condition:
-                    if val not in condition["$in"]:
-                        match = False
-                        break
-                elif isinstance(condition, list):
-                    if val not in condition:
-                        match = False
-                        break
-                else:
-                    if val != condition:
-                        match = False
-                        break
-            if match:
+            if check_condition(d.get("metadata", {}), filter):
                 result.append(d)
         return result
 
@@ -358,4 +419,3 @@ class VectorRetriever:
         except Exception as e:
             logger.error(f"Error getting collection info: {e}")
             raise
-        

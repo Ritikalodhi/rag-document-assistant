@@ -1,5 +1,5 @@
 """Configuration management for RAG Document Assistant."""
- 
+
 import os
 import logging
 from pathlib import Path
@@ -27,7 +27,7 @@ OPENAI_MODEL   = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo").strip()
  
 # ── Gemini ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-pro").strip()
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-3.5-flash").strip()
  
 # ── Validate keys at startup — fail fast with a clear message ─────────────────
 if LLM_PROVIDER == "openai":
@@ -45,10 +45,16 @@ else:
         f"Invalid LLM_PROVIDER: '{LLM_PROVIDER}'. Must be 'openai' or 'gemini'."
     )
  
-# ── Chunking ──────────────────────────────────────────────────────────────────
+# ── Chunking & Retrieval ──────────────────────────────────────────────────────
 CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 CHUNK_STRATEGY = os.getenv("CHUNK_STRATEGY", "recursive").lower().strip()
+# Minimum size for a chunk to be a standalone retrieval unit. Tiny/useless
+# chunks (e.g. "↓", "Step 2: Unicode Normalization") below this size are merged
+# with an adjacent chunk during section-aware processing.
+MIN_CHUNK_SIZE = int(os.getenv("MIN_CHUNK_SIZE", "150"))
+# Authoritative number of chunks sent to the LLM as final context.
+TOP_K = int(os.getenv("TOP_K", "15"))
  
 # ── Vector DB ─────────────────────────────────────────────────────────────────
 _chroma_env = os.getenv("CHROMA_PERSIST_DIR", "").strip()
@@ -68,12 +74,13 @@ RERANKER_CANDIDATES = int(os.getenv("RERANKER_CANDIDATES", "30"))
 # ── Conversation Memory ───────────────────────────────────────────────────────
 MEMORY_WINDOW = int(os.getenv("MEMORY_WINDOW", "10"))        # last N exchanges to inject
 MEMORY_MAX_CHARS = int(os.getenv("MEMORY_MAX_CHARS", "2000"))  # truncate history string at this length
-
+ 
 # ── LLM Reliability ──────────────────────────────────────────────────────────
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
 LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
-LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "").strip() or None
-
+_default_fallback_model = "gemini-3.1-flash-lite" if LLM_PROVIDER == "gemini" else ""
+LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", _default_fallback_model).strip() or None
+ 
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
  
@@ -98,5 +105,5 @@ if SECRET_KEY == "CHANGE_ME_IN_ENV":
     logger.warning("Using default JWT_SECRET_KEY — do not use in production")
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173")
 ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]

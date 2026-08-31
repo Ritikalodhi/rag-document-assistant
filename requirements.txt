@@ -22,6 +22,7 @@ langchain-chroma>=1.0.0
 
 # ── Document parsing ──────────────────────────────────────────────────────────
 pypdf>=4.2.0
+pdfplumber>=0.10.0
 # used by Docx2txtLoader in langchain-community
 docx2txt>=0.8   
 # kept for any direct python-docx usage       
@@ -38,6 +39,10 @@ markdown>=3.6
 rank-bm25>=0.2.2
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+# passlib 1.7.4 is incompatible with bcrypt >= 4.1.0
+# bcrypt 4.1.0 removed the __about__ module that passlib's bcrypt backend requires
+# bcrypt 4.1.2+ also enforces a hard 72-byte password limit that breaks long passwords
+bcrypt<4.1.0
 redis>=5.0.0
 
 # ── Cross-encoder re-ranker ──────────────────────────────────────────────────

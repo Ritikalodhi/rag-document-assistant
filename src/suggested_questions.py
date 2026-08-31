@@ -31,6 +31,11 @@ class QuestionSuggester:
         try:
             raw = self.llm_manager._invoke(prompt)
             cleaned = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
+            # Truncate to last complete array element
+            if not cleaned.endswith("]"):
+                last_comma = cleaned.rfind('",')
+                if last_comma != -1:
+                    cleaned = cleaned[:last_comma+1] + "]"
             questions = json.loads(cleaned)
             if isinstance(questions, list):
                 return [str(q) for q in questions[:count]]

@@ -7,9 +7,25 @@ interface ConfidenceBadgeProps {
 }
 
 export function ConfidenceBadge({ grade, compositeScore, grounded }: ConfidenceBadgeProps) {
-  if (!grade && grounded === undefined) return null;
+  // Display badge if we have grade, grounded status, OR composite score
+  if (!grade && grounded === undefined && compositeScore === undefined) return null;
 
-  const level = grade?.toLowerCase() ?? (grounded === true ? 'high' : 'low');
+  const normalizedGrade = grade?.toUpperCase();
+  const level = (() => {
+    // If we have a composite score, use it to determine level
+    if (compositeScore !== undefined) {
+      if (compositeScore >= 70) return 'high';
+      if (compositeScore >= 50) return 'medium';
+      return 'low';
+    }
+    // Fall back to grade-based logic
+    if (normalizedGrade === 'A') return 'high';
+    if (normalizedGrade === 'B' || normalizedGrade === 'C') return 'medium';
+    if (normalizedGrade === 'D' || normalizedGrade === 'F') return 'low';
+    const lower = grade?.toLowerCase();
+    if (lower === 'high' || lower === 'medium' || lower === 'low') return lower;
+    return grounded === true ? 'high' : 'low';
+  })();
 
   const config = {
     high: {
@@ -37,7 +53,7 @@ export function ConfidenceBadge({ grade, compositeScore, grounded }: ConfidenceB
       <span>{label}</span>
       {compositeScore !== undefined && (
         <span className="opacity-60">
-          {Math.round(compositeScore * 100)}%
+          {Math.round(compositeScore)}%
         </span>
       )}
     </span>
@@ -45,7 +61,7 @@ export function ConfidenceBadge({ grade, compositeScore, grounded }: ConfidenceB
 
   if (compositeScore !== undefined) {
     return (
-      <Tooltip content={`${Math.round(compositeScore * 100)}% composite score`}>
+      <Tooltip content={`${Math.round(compositeScore)}% composite score`}>
         {badge}
       </Tooltip>
     );

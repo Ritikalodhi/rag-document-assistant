@@ -46,20 +46,51 @@ class ConversationManager:
             tmp.unlink(missing_ok=True)
             raise
 
-    def add_entry(self, user_id: str, question: str, answer: str, context: list[dict[str, Any]]) -> dict[str, Any]:
+    def add_entry(self, user_id: str, question: str, answer: str, context: list[dict[str, Any]], conversation_id: str | None = None) -> dict[str, Any]:
         with self._lock:
-            entry: dict[str, Any] = {
+            data = self._read()
+            now = datetime.now(timezone.utc).isoformat()
+            timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+            
+            user_msg = {
+                "id": str(uuid.uuid4()),
+                "role": "user",
+                "content": question,
+                "timestamp": timestamp
+            }
+            assistant_msg = {
+                "id": str(uuid.uuid4()),
+                "role": "assistant",
+                "content": answer,
+                "context": context,
+                "timestamp": timestamp
+            }
+
+            if conversation_id:
+                for conv in data:
+                    if conv.get("id") == conversation_id and conv.get("user_id") == user_id:
+                        # Ensure it's a new schema conversation
+                        if "messages" not in conv:
+                            conv["messages"] = []
+                        conv["messages"].extend([user_msg, assistant_msg])
+                        conv["updated_at"] = now
+                        self._write(data)
+                        return conv
+
+            # Create new conversation
+            new_conv = {
                 "id": str(uuid.uuid4()),
                 "user_id": user_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "title": question[:50] + "..." if len(question) > 50 else question,
+                "created_at": now,
+                "updated_at": now,
                 "question": question,
                 "answer": answer,
-                "context": context,
+                "messages": [user_msg, assistant_msg]
             }
-            data = self._read()
-            data.insert(0, entry)
+            data.insert(0, new_conv)
             self._write(data)
-        return entry
+            return new_conv
 
     def get_history(self, user_id: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
         """Get conversation history. If user_id provided, scoped to that user."""
@@ -84,6 +115,19 @@ class ConversationManager:
                 return False
             self._write(filtered)
         return True
+
+
+    def rename_conversation(self, entry_id: str, new_title: str, user_id: str | None = None) -> bool:
+        """Rename a conversation's title. Returns True if found and updated."""
+        with self._lock:
+            data = self._read()
+            for conv in data:
+                if conv.get("id") == entry_id and (user_id is None or conv.get("user_id") == user_id):
+                    conv["title"] = new_title[:100]
+                    conv["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    self._write(data)
+                    return True
+        return False
 
     def clear_history(self, user_id: str | None = None) -> None:
         """Clear history. If user_id provided, only clears that user's entries."""

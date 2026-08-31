@@ -9,7 +9,7 @@ interface ConversationSidebarProps {
   isLoading: boolean;
   error: Error | null;
   onRefetch: () => void;
-  onSelectConversation: (question: string) => void;
+  onSelectConversation: (conversation: ConversationEntry) => void;
   onNewConversation: () => void;
 }
 
@@ -26,12 +26,36 @@ export function ConversationSidebar({
   const [clearConfirm, setClearConfirm] = useState(false);
   const deleteConv = useDeleteConversation();
   const clearConvs = useClearConversations();
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleRenameStart = (conv: ConversationEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRenamingId(conv.id);
+    setRenameValue(conv.title);
+  };
+
+  const handleRenameSubmit = async (id: string) => {
+    if (!renameValue.trim()) { setRenamingId(null); return; }
+    try {
+      await fetch(`/api/conversations/${id}/title`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ title: renameValue.trim() }),
+      });
+      onRefetch();
+    } catch { /* silently fail */ }
+    setRenamingId(null);
+  };
 
   const filteredConvs = useMemo(() => {
     if (!conversations) return [];
     if (!searchQuery.trim()) return conversations;
     const q = searchQuery.toLowerCase();
-    return conversations.filter((c) => c.question.toLowerCase().includes(q));
+    return conversations.filter((c) => c.title.toLowerCase().includes(q));
   }, [conversations, searchQuery]);
 
   const groupedConvs = useMemo(() => {
@@ -52,7 +76,7 @@ export function ConversationSidebar({
     <aside className="w-[240px] border-r border-[rgb(var(--color-border))] flex flex-col flex-shrink-0 hidden lg:flex bg-[rgb(var(--color-sidebar))]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[rgb(var(--color-border))]">
-        <h2 className="text-caption font-medium text-[rgb(var(--color-text-secondary))] uppercase tracking-wider text-[11px]">
+        <h2 className="font-ui text-caption font-medium text-[rgb(var(--color-text-secondary))] uppercase tracking-wider text-[11px]">
           Conversations
         </h2>
         <div className="flex items-center gap-1">
@@ -150,18 +174,43 @@ export function ConversationSidebar({
                     <div
                       key={conv.id}
                       className="group flex items-center gap-1 px-3 py-2 rounded-[6px] text-left text-caption text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] transition-colors cursor-pointer"
-                      onClick={() => onSelectConversation(conv.question)}
+                      onClick={() => renamingId !== conv.id && onSelectConversation(conv)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectConversation(conv.question); }}
-                      aria-label={`Conversation: ${conv.question}`}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && renamingId !== conv.id) onSelectConversation(conv); }}
+                      aria-label={`Conversation: ${conv.title}`}
                     >
-                      <span className="truncate flex-1">{conv.question}</span>
+                      {renamingId === conv.id ? (
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => handleRenameSubmit(conv.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameSubmit(conv.id);
+                            if (e.key === 'Escape') setRenamingId(null);
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 bg-transparent border-b border-[rgb(var(--color-border))] outline-none text-caption text-[rgb(var(--color-text))]"
+                        />
+                      ) : (
+                        <span className="truncate flex-1">{conv.title}</span>
+                      )}
+                      {/* Rename button */}
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirm(conv.id);
-                        }}
+                        onClick={(e) => handleRenameStart(conv, e)}
+                        className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-[rgb(var(--color-surface))] transition-all flex-shrink-0"
+                        aria-label="Rename conversation"
+                        title="Rename"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm(conv.id); }}
                         className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
                         aria-label="Delete conversation"
                       >
