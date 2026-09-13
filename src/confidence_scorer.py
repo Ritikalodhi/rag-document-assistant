@@ -80,7 +80,11 @@ class AnswerConfidenceScorer:
             c.get("retrieval_relevance", c.get("confidence_percent", 0))
             for c in context_list
         ]
-        retrieval_relevance = round(sum(scores) / len(scores), 1) if scores else 0.0
+        if scores:
+            top_scores = sorted(scores, reverse=True)[:2]
+            retrieval_relevance = round(sum(top_scores) / len(top_scores), 1)
+        else:
+            retrieval_relevance = 0.0
 
         # 2. Answer completeness
         if run_llm_judge and answer and not answer.startswith("Error"):
@@ -159,6 +163,15 @@ class AnswerConfidenceScorer:
         r"|i\s+(?:don't|do not|cannot|can't)\s+(?:find|determine|answer)",
         re.IGNORECASE,
     )
+    # Direct single-slot identity questions ("what is my name", "who is the
+    # author", "what's the title") ask for a VALUE that REPLACES the
+    # question's own noun in the answer — a correct answer does not repeat
+    # words like "name"/"author"/"title". Lexical-overlap checking against
+    # the question is the wrong test for these; a short part combined with
+    # any substantive, non-refusal answer is enough.
+    _IDENTITY_QUESTION_RE = re.compile(
+        r"^(?:what|who|which)(?:'s|\s+is|\s+are)\b", re.IGNORECASE
+    )
 
     @classmethod
     def _requested_parts(cls, question: str) -> list[str]:
@@ -221,6 +234,7 @@ class AnswerConfidenceScorer:
             return 50.0
 
         is_refusal = bool(cls._REFUSAL_RE.search(answer))
+        is_identity_question = bool(cls._IDENTITY_QUESTION_RE.match((question or "").strip()))
         ans_tokens = cls._content_tokens(answer)
         ans_lower = answer.lower()
         answer_has_number = bool(re.search(r"\d", answer))
@@ -247,6 +261,22 @@ class AnswerConfidenceScorer:
             if not threshold_ok and len(part_tokens) <= 3 and overlap >= 1:
                 # Short parts (e.g. "bleu score achieved") are addressed
                 # by mentioning their key term.
+                threshold_ok = True
+            # Direct single-slot identity questions ("what is my name",
+            # "who is the author") ask for a VALUE that replaces the
+            # question's own noun — a correct answer ("Ritika Lodhi") has
+            # zero lexical overlap with "name" by design, not because the
+            # question went unanswered. Treat a short part (<=2 content
+            # words) as addressed whenever the answer is substantive and
+            # not a refusal, since there is nothing further to check
+            # lexically for a single-slot identity question.
+            if (
+                not threshold_ok
+                and is_identity_question
+                and len(part_tokens) <= 2
+                and ans_tokens
+                and not is_refusal
+            ):
                 threshold_ok = True
             if threshold_ok:
                 addressed += 1
@@ -328,6 +358,51 @@ class AnswerConfidenceScorer:
         content_words = cls._content_tokens(answer)
         return len(content_words) <= 40
 
+    # ── Paraphrase-tolerant token matching ──────────────────────────
+    # Small hardcoded stemmer + synonym table so that phrasing choices
+    # ("uses" vs "consists", "architecture" vs "model") don't count as
+    # unsupported content. Deliberately conservative — general nouns/
+    # numbers are untouched, so numeric hallucination detection is
+    # unaffected.
+    _PARAPHRASE_SYNONYMS: dict[str, frozenset[str]] = {
+        "consists": frozenset({"uses", "comprises", "contains", "includes", "employs", "features", "has"}),
+        "uses": frozenset({"consists", "comprises", "employs", "utilizes", "utilises"}),
+        "contains": frozenset({"consists", "includes", "comprises", "has"}),
+        "comprises": frozenset({"consists", "contains", "includes"}),
+        "architecture": frozenset({"model", "design", "structure"}),
+        "model": frozenset({"architecture", "system"}),
+        "employs": frozenset({"uses", "utilizes", "utilises", "features", "has"}),
+        "features": frozenset({"has", "consists", "includes", "employs", "uses"}),
+        "having": frozenset({"with", "featuring", "containing"}),
+        "each": frozenset({"per", "every"}),
+        "per": frozenset({"each", "every"}),
+        "design": frozenset({"architecture", "structure", "model"}),
+        "system": frozenset({"model", "architecture"}),
+    }
+
+    @staticmethod
+    def _stem(word: str) -> str:
+        """Minimal suffix stripping — enough to match uses/used/using etc."""
+        for suf in ("ing", "edly", "ed", "es", "s", "ly"):
+            if word.endswith(suf) and len(word) - len(suf) >= 3:
+                return word[: -len(suf)]
+        return word
+
+    @classmethod
+    def _tokens_match(cls, ans_token: str, ctx_tokens: set[str], ctx_stems: set[str]) -> bool:
+        if ans_token in ctx_tokens:
+            return True
+        stem = cls._stem(ans_token)
+        if stem in ctx_stems:
+            return True
+        synonyms = cls._PARAPHRASE_SYNONYMS.get(ans_token) or cls._PARAPHRASE_SYNONYMS.get(stem)
+        if synonyms and (
+            synonyms & ctx_tokens
+            or {cls._stem(s) for s in synonyms} & ctx_stems
+        ):
+            return True
+        return False
+
     @staticmethod
     def _content_tokens(text: str) -> set[str]:
         """Lowercased alphabetic content tokens, stopwords removed."""
@@ -395,7 +470,10 @@ class AnswerConfidenceScorer:
             # numeric check below.
             lexical = 1.0
         else:
-            covered = sum(1 for t in ans_tokens if t in ctx_tokens)
+            ctx_stems = {cls._stem(t) for t in ctx_tokens}
+            covered = sum(
+                1 for t in ans_tokens if cls._tokens_match(t, ctx_tokens, ctx_stems)
+            )
             # Coverage weighted by how much of the answer is content words.
             lexical = covered / len(ans_tokens)
 

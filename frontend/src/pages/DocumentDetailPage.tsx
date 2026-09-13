@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDocumentMetadata, useDocuments, useDeleteDocument } from '@/features/documents/hooks/useDocuments';
 import { setLastViewedDocId } from '@/utils/lastDocument';
+import { saveReadingProgress } from '@/utils/readingProgress';
 
 import {
   useDocumentSummary,
@@ -26,14 +27,22 @@ export function DocumentDetailPage() {
   const doc = documents?.find((d) => d.doc_id === docId);
   const { data: metadata } = useDocumentMetadata(docId ?? '');
 
-  useEffect(() => {
-    if (docId) setLastViewedDocId(docId);
-  }, [docId]);
-
-  if (!docId) return <ErrorState title="Missing document ID" />;
-
   const filename = doc?.filename ?? metadata?.filename ?? 'Loading...';
   const fileType = getFileType(filename);
+
+  useEffect(() => {
+    if (docId) {
+      setLastViewedDocId(docId);
+      if (filename && filename !== 'Loading...') {
+        saveReadingProgress(docId, {
+          title: filename,
+          progress: 100,
+        });
+      }
+    }
+  }, [docId, filename]);
+
+  if (!docId) return <ErrorState title="Missing document ID" />;
 
   return (
     <div className="flex flex-col gap-6 max-w-content">

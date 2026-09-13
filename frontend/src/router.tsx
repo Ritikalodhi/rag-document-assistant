@@ -18,6 +18,7 @@ const CollectionDetailPage = lazy(() => import('@/pages').then((m) => ({ default
 const ComparePage = lazy(() => import('@/pages').then((m) => ({ default: m.ComparePage })));
 const CrossAnalysisPage = lazy(() => import('@/pages').then((m) => ({ default: m.CrossAnalysisPage })));
 const SettingsPage = lazy(() => import('@/pages').then((m) => ({ default: m.SettingsPage })));
+const StudyNotesPage = lazy(() => import('@/pages').then((m) => ({ default: m.StudyNotesPage })));
 
 function SuspenseFallback() {
   return (
@@ -121,6 +122,14 @@ export function AppRoutes() {
           element: (
             <PageSuspense>
               <CollectionDetailPage />
+            </PageSuspense>
+          ),
+        },
+        {
+          path: 'study-notes',
+          element: (
+            <PageSuspense>
+              <StudyNotesPage />
             </PageSuspense>
           ),
         },

@@ -32,16 +32,16 @@ export function RegisterPage() {
     }
   };
 
-  const inputClass = "w-full px-4 py-2.5 rounded-[10px] bg-white/[0.06] border border-white/[0.1] text-white text-[14px] placeholder-white/25 focus:outline-none focus:border-[rgb(99,138,255)]/60 focus:bg-white/[0.08] focus:ring-2 focus:ring-[rgb(99,138,255)]/20 transition-all duration-200";
+  const inputClass = "w-full px-4 py-2.5 rounded-[10px] bg-[#191D1F] border border-[#2A3034] text-[#F2F4F3] text-[14px] placeholder-[#62666A] focus:outline-none focus:border-[#315540] focus:ring-2 focus:ring-[#315540]/30 transition-all duration-200";
 
   return (
     <AuthShell>
       {/* Title section */}
       <div className="mb-7">
-        <h1 className="font-display text-[30px] font-semibold tracking-[-0.025em] text-white mb-1.5">
+        <h1 className="font-display text-[30px] font-semibold tracking-[-0.025em] text-[#F2F4F3] mb-1.5">
           Create account
         </h1>
-        <p className="text-[14px] text-white/50">
+        <p className="text-[14px] text-[#8E9398]">
           Start building your research workspace.
         </p>
       </div>
@@ -59,7 +59,7 @@ export function RegisterPage() {
       {/* Form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="register-email" className="text-[13px] font-semibold text-white/70">
+          <label htmlFor="register-email" className="text-[13px] font-semibold text-[#8E9398]">
             Email address
           </label>
           <input
@@ -75,7 +75,7 @@ export function RegisterPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="register-username" className="text-[13px] font-semibold text-white/70">
+          <label htmlFor="register-username" className="text-[13px] font-semibold text-[#8E9398]">
             Username
           </label>
           <input
@@ -91,7 +91,7 @@ export function RegisterPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="register-password" className="text-[13px] font-semibold text-white/70">
+          <label htmlFor="register-password" className="text-[13px] font-semibold text-[#8E9398]">
             Password
           </label>
           <input
@@ -110,8 +110,7 @@ export function RegisterPage() {
           type="submit"
           disabled={isSubmitting}
           id="register-submit"
-          className="w-full mt-1 py-2.5 px-4 rounded-[11px] text-white font-semibold text-[14px] transition-all duration-150 shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, rgb(99,138,255) 0%, rgb(99,102,241) 100%)' }}
+          className="w-full mt-1 py-2.5 px-4 rounded-[11px] text-[#F2F4F3] font-semibold text-[14px] bg-[#315540] hover:bg-[#3A644C] transition-all duration-150 shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
         >
           {isSubmitting ? (
             <>
@@ -128,11 +127,11 @@ export function RegisterPage() {
       </form>
 
       {/* Footer redirection */}
-      <p className="mt-6 text-center text-[13.5px] text-white/40">
+      <p className="mt-6 text-center text-[13.5px] text-[#62666A]">
         Already have an account?{' '}
         <Link
           to="/login"
-          className="font-semibold text-white/80 hover:text-white transition-colors underline underline-offset-2 decoration-white/30 hover:decoration-white"
+          className="font-semibold text-[#8E9398] hover:text-[#B8EFC8] transition-colors underline underline-offset-2 decoration-[#62666A]"
         >
           Sign in
         </Link>

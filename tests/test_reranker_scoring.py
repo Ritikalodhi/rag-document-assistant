@@ -6,6 +6,8 @@ Covers the refactor that:
   a poor retrieval match,
 - preserves original retrieval scores when the cross-encoder is
   unavailable (no fake 100% from relative normalisation).
+- combines the two signals using the true geometric mean
+  (sqrt(orig_norm * rerank)), not a plain product.
 """
 
 import pytest
@@ -33,26 +35,29 @@ def _cand(text: str, score: float):
 def test_combine_high_retrieval_high_reranker():
     out = CrossEncoderReranker._combine(90.0, 0.9)
     # Geometric mean of 0.9 and 0.9 -> 0.9; high agreement stays high.
-    assert out == pytest.approx(0.81, abs=1e-6)
+    assert out == pytest.approx(0.9, abs=1e-6)
 
 
 def test_combine_high_retrieval_low_reranker():
     out = CrossEncoderReranker._combine(90.0, 0.05)
     # The cross-encoder must be able to LOWER a poor match — no max() floor.
-    assert out < 0.9 * 0.05 + 1e-9
-    assert out == pytest.approx(0.045, abs=1e-6)
+    # Geometric mean of 0.9 and 0.05 -> sqrt(0.045) ≈ 0.21213.
+    assert out == pytest.approx(0.21213, abs=1e-4)
+    assert out < 0.9  # still meaningfully lowered from the retrieval score alone
 
 
 def test_combine_low_retrieval_high_reranker():
     out = CrossEncoderReranker._combine(10.0, 0.95)
     # Weak first-stage evidence caps the score even with a strong reranker.
-    assert out == pytest.approx(0.095, abs=1e-6)
+    # Geometric mean of 0.1 and 0.95 -> sqrt(0.095) ≈ 0.30822.
+    assert out == pytest.approx(0.30822, abs=1e-4)
     assert out < 0.5
 
 
 def test_combine_low_retrieval_low_reranker():
     out = CrossEncoderReranker._combine(10.0, 0.05)
-    assert out == pytest.approx(0.005, abs=1e-6)
+    # Geometric mean of 0.1 and 0.05 -> sqrt(0.005) ≈ 0.07071.
+    assert out == pytest.approx(0.07071, abs=1e-4)
     assert out < 0.1
 
 

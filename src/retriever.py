@@ -26,8 +26,6 @@ class VectorRetriever:
     def __init__(self, collection_name: str = "documents", persist_dir: str = CHROMA_PERSIST_DIR):
         self.collection_name = collection_name
         self.persist_dir = persist_dir
-        # Computed in __init__ (not at import/class-definition time) so tests
-        # that patch config.DATA_DIR actually get isolated storage.
         self._bm25_path = Path(config.DATA_DIR) / "bm25_index.pkl"
         self.embeddings = EmbeddingManager()
         self.last_retrieval_mode = "hybrid"
@@ -39,12 +37,10 @@ class VectorRetriever:
             persist_directory=persist_dir,
         )
 
-        # BM25 index: list of (tokenized_chunk, original_text, metadata)
         self._bm25: BM25Okapi | None = None
-        self._bm25_docs: list[dict] = []   # [{content, metadata}]
+        self._bm25_docs: list[dict] = []
         self._load_bm25()
 
-        # Optional cross-encoder reranker (lazy-loaded, graceful fallback)
         self._reranker = CrossEncoderReranker()
         logger.info(
             f"Initialized VectorRetriever (collection={collection_name}, "
@@ -85,7 +81,6 @@ class VectorRetriever:
         On failure, rolls back any partial changes (Chroma entries and
         BM25 updates) so the system remains consistent.
         """
-        # Snapshot BM25 state before modification (for rollback)
         bm25_snapshot = {
             "bm25": pickle.dumps(self._bm25) if self._bm25 else None,
             "bm25_docs": list(self._bm25_docs),
@@ -95,7 +90,6 @@ class VectorRetriever:
             chroma_ids = self.vectorstore.add_documents(documents)
             logger.info(f"Added {len(chroma_ids)} chunks to Chroma")
 
-            # Add to BM25
             for doc in documents:
                 tokens = doc.page_content.lower().split()
                 self._bm25_docs.append({
@@ -107,14 +101,12 @@ class VectorRetriever:
             self._save_bm25()
         except Exception as e:
             logger.error(f"Error adding documents, rolling back: {e}")
-            # Rollback Chroma entries
             if chroma_ids:
                 try:
                     self.vectorstore.delete(ids=chroma_ids)
                     logger.info(f"Rolled back {len(chroma_ids)} Chroma entries")
                 except Exception as rollback_err:
                     logger.error(f"Chroma rollback failed: {rollback_err}")
-            # Rollback BM25 state
             self._bm25_docs = bm25_snapshot["bm25_docs"]
             if bm25_snapshot["bm25"] is not None:
                 self._bm25 = pickle.loads(bm25_snapshot["bm25"])
@@ -126,11 +118,7 @@ class VectorRetriever:
 
     @staticmethod
     def _combine_filter(*conditions: dict | None) -> dict | None:
-        """Combine multiple metadata conditions into a Chroma-compatible filter.
-
-        Chroma's `where` requires exactly one top-level operator when there's
-        more than one condition, so multiple conditions must be wrapped in $and.
-        """
+        """Combine multiple metadata conditions into a Chroma-compatible filter."""
         conditions = [c for c in conditions if c]
         if not conditions:
             return None
@@ -139,10 +127,7 @@ class VectorRetriever:
         return {"$and": conditions}
 
     def delete_by_source(self, source_path: str, user_id: str | None = None) -> None:
-        """Delete chunks from Chroma and BM25 matching the source path.
-
-        If user_id is provided, only deletes chunks belonging to that user.
-        """
+        """Delete chunks from Chroma and BM25 matching the source path."""
         try:
             where_filter = self._combine_filter(
                 {"source": source_path},
@@ -154,7 +139,6 @@ class VectorRetriever:
                 self.vectorstore.delete(ids=ids)
                 logger.info(f"Deleted {len(ids)} chunks from Chroma for: {source_path}")
 
-            # Remove from BM25
             before = len(self._bm25_docs)
             self._bm25_docs = [
                 d for d in self._bm25_docs
@@ -178,22 +162,7 @@ class VectorRetriever:
         return [doc for doc, _ in self.retrieve_with_scores(query, k, filter=filter)]
 
     def retrieve_reranked(self, query: str, k: int = 4, filter: dict | None = None) -> list[tuple]:
-        """Hybrid retrieval + optional cross-encoder re-ranking.
-
-        1. Fetch a larger candidate pool (``RERANKER_CANDIDATES`` items) via
-           the standard hybrid (dense + BM25) retriever.
-        2. If a cross-encoder reranker is available, score every candidate
-           pair and re-sort by combined score.
-        3. Return the top ``k`` as ``(Document, confidence_percent)`` pairs,
-           the same format as ``retrieve_with_scores()``.
-
-        When the reranker is unavailable (package missing, model failed to
-        load, or disabled via config), this degrades to the standard hybrid
-        retrieval with a larger candidate pool (``RERANKER_CANDIDATES``),
-        then returns the top ``k``.
-
-        Backward compatible: ``retrieve_with_scores()`` remains unchanged.
-        """
+        """Hybrid retrieval + optional cross-encoder re-ranking."""
         candidate_count = max(k, RERANKER_CANDIDATES)
         candidates = self.retrieve_with_scores(query, k=candidate_count, filter=filter)
 
@@ -212,23 +181,12 @@ class VectorRetriever:
         k: int = 3,
         filter: dict | None = None,
     ) -> list[tuple]:
-        """Retrieve only atomic PDF table chunks.
-
-        Tables are indexed with ``content_type=table``. Restricting retrieval
-        to those chunks prevents prose chunks from displacing a comparison
-        table when the user asks for model/metric comparisons.
-        """
+        """Retrieve only atomic PDF table chunks."""
         table_filter = self._combine_filter(
             filter,
             {"content_type": "table"},
         )
 
-        # Expand the query with table-specific vocabulary. This improves both
-        # BM25 and dense retrieval without changing the user's actual question.
-        # The expansion terms cover every table type in the document (metrics,
-        # literature-survey rows, dataset splits, examples, and software
-        # tools) rather than only BLEU/METEOR terms, so a literature-survey
-        # question isn't diluted by irrelevant metric vocabulary.
         table_query = (
             f"{query}\n"
             "TABLE COLUMNS ROW "
@@ -238,9 +196,6 @@ class VectorRetriever:
             "Training Set Validation Set Test Set"
         )
 
-        # Retrieve a larger candidate pool first, then let the reranker (if
-        # available) narrow it down — this avoids a single noisy query
-        # accidentally excluding the correct table row.
         candidates = self.retrieve_with_scores(
             table_query,
             k=max(k, 8),
@@ -256,36 +211,37 @@ class VectorRetriever:
         return [(r.document, r.confidence_percent) for r in reranked]
 
     def retrieve_with_scores(self, query: str, k: int = 4, filter: dict | None = None) -> list[tuple]:
-        """Hybrid RRF retrieval. Returns (Document, confidence_percent) pairs.
-
-        Phase 8 fix: returns ALL fused results (not just the top ``k``) so the
-        caller (reranker / multi-query merge) can work with a larger candidate
-        pool. The caller is responsible for capping to its final ``k``.
-
-        Args:
-            query: Search text.
-            k: Number of results to return (used as a hint for dense/sparse
-               fetch sizes, but the full fused list is returned).
-            filter: Metadata filter dict in Chroma's format
-                    (e.g. ``{"source": {"$in": ["/a.pdf", "/b.pdf"]}}``).
-        """
+        """Hybrid RRF retrieval. Returns (Document, confidence_percent) pairs."""
         dense_results = self._dense_retrieve(query, k=k * 3, filter=filter)
         sparse_results = self._sparse_retrieve(query, k=k * 3, filter=filter) if self._bm25 else []
 
         fused, mode = self._compose_results(dense_results, sparse_results, k=k)
         self.last_retrieval_mode = mode
 
-        # Build confidence map from dense cosine distances BEFORE fusion
+        # Dense confidence from cosine distance
         dense_conf = {}
         for doc, dist in dense_results:
-            # Chroma with langchain-chroma returns cosine distance (0=identical)
             conf = round(max(0.0, min(1.0, 1 - dist / 2)) * 100, 1)
-            # Use first 200 chars as key to handle whitespace differences
             dense_conf[doc.page_content[:200]] = conf
+
+        # BM25 confidence normalized to 0-100 against the max score in this
+        # result set — replaces the old flat 50.0/60.0 constants.
+        bm25_conf = {}
+        if sparse_results:
+            max_bm25_score = max(score for _, score in sparse_results) or 1.0
+            for doc, score in sparse_results:
+                conf = round(min(1.0, max(0.0, score / max_bm25_score)) * 100, 1)
+                bm25_conf[doc.page_content[:200]] = conf
 
         final = []
         for doc, _ in fused:
-            confidence = dense_conf.get(doc.page_content[:200], 60.0 if mode == "bm25_fallback" else 50.0)
+            key = doc.page_content[:200]
+            if key in dense_conf:
+                confidence = dense_conf[key]
+            elif key in bm25_conf:
+                confidence = bm25_conf[key]
+            else:
+                confidence = 60.0 if mode == "bm25_fallback" else 50.0
             final.append((doc, confidence))
 
         logger.info(f"{mode.title()} retrieval: {len(final)} results for: {query[:50]}...")
@@ -293,12 +249,7 @@ class VectorRetriever:
 
     @staticmethod
     def _compose_results(dense_results: list[tuple], sparse_results: list[tuple], k: int = 4) -> tuple[list[tuple], str]:
-        """Combine dense and sparse results with a clear fallback mode.
-
-        Phase 8 fix: returns ALL fused results (not capped at ``k``) so the
-        caller can work with a larger candidate pool. The caller is
-        responsible for capping to its final ``k``.
-        """
+        """Combine dense and sparse results with a clear fallback mode."""
         if not dense_results and sparse_results:
             return sparse_results, "bm25_fallback"
         if dense_results and not sparse_results:
@@ -309,10 +260,7 @@ class VectorRetriever:
 
     @staticmethod
     def _rrf(dense: list[tuple], sparse: list[tuple], k: int = 60) -> list[tuple]:
-        """Reciprocal Rank Fusion.
-        Score = Σ 1/(k + rank_i) across all lists.
-        Higher is better.
-        """
+        """Reciprocal Rank Fusion."""
         scores: dict[str, float] = {}
         docs: dict[str, object] = {}
 
@@ -340,14 +288,7 @@ class VectorRetriever:
             return []
 
     def _sparse_retrieve(self, query: str, k: int, filter: dict | None = None) -> list[tuple]:
-        """BM25 retrieval — returns (pseudo-Document, bm25_score) pairs.
-
-        Uses the persisted ``self._bm25`` when there is no filter (avoids
-        rebuilding from scratch on every query).  Only builds a scoped
-        BM25Okapi from the filtered subset when a filter is present.
-
-        Applies optional metadata filter before scoring.
-        """
+        """BM25 retrieval — returns (pseudo-Document, bm25_score) pairs."""
         try:
             from langchain_core.documents import Document
 
@@ -378,16 +319,11 @@ class VectorRetriever:
 
     @staticmethod
     def _filter_bm25_docs(docs: list[dict], filter: dict) -> list[dict]:
-        """Apply a simple metadata filter to a list of BM25 doc dicts.
-
-        Supports exact-match keys (``{"source": "/a.pdf"}``),
-        Chroma-style ``$in`` (``{"source": {"$in": ["/a.pdf", "/b.pdf"]}}``),
-        and nested ``$and`` (``{"$and": [...]}``).
-        """
+        """Apply a simple metadata filter to a list of BM25 doc dicts."""
         def check_condition(meta: dict, condition: dict) -> bool:
             if "$and" in condition:
                 return all(check_condition(meta, c) for c in condition["$and"])
-            
+
             for key, val_cond in condition.items():
                 meta_val = meta.get(key)
                 if isinstance(val_cond, dict) and "$in" in val_cond:
@@ -407,6 +343,21 @@ class VectorRetriever:
                 result.append(d)
         return result
 
+    def get_user_chunk_counts(self, user_id: str) -> dict:
+        """Count indexed chunks belonging to one user (Chroma + BM25)."""
+        chroma_count = 0
+        try:
+            result = self.vectorstore.get(where={"user_id": user_id}, include=[])
+            chroma_count = len(result.get("ids", []))
+        except Exception as e:
+            logger.error(f"Error counting user chunks in Chroma: {e}")
+
+        bm25_count = sum(
+            1 for d in self._bm25_docs
+            if d.get("metadata", {}).get("user_id") == user_id
+        )
+        return {"chroma_chunks": chroma_count, "bm25_chunks": bm25_count}
+
     def get_collection_info(self) -> dict:
         try:
             count = self.vectorstore._collection.count()
@@ -419,3 +370,4 @@ class VectorRetriever:
         except Exception as e:
             logger.error(f"Error getting collection info: {e}")
             raise
+        

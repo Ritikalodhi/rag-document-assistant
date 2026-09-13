@@ -103,7 +103,7 @@ export function DocumentsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h2 className="text-[20px] font-display font-semibold mb-1.5 text-[rgb(var(--color-text))]">Build your research library</h2>
+        <h2 className="text-[20px] font-ui font-semibold mb-1.5 text-[rgb(var(--color-text))]">Build your research library</h2>
         <p className="text-[14px] text-[rgb(var(--color-text-secondary))] max-w-md mb-6 leading-relaxed">
           Upload PDFs, reports, notes, and documents to start asking questions across your sources.
         </p>
@@ -117,7 +117,7 @@ export function DocumentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[26px] sm:text-[28px] font-display font-semibold tracking-tight text-[rgb(var(--color-text))]">Documents</h1>
+          <h1 className="text-[28px] sm:text-[30px] font-ui font-bold tracking-tight text-[rgb(var(--color-text))]">Documents</h1>
           <p className="text-[14px] text-[rgb(var(--color-text-secondary))] mt-1">Your research library</p>
         </div>
         <Button onClick={() => navigate('/upload')}>Upload document</Button>
@@ -179,7 +179,7 @@ export function DocumentsPage() {
             <div
               key={doc.doc_id}
               onClick={() => navigate(`/documents/${doc.doc_id}`)}
-              className="flex flex-col justify-between p-4.5 rounded-[10px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-text-tertiary))]/50 transition-all duration-150 cursor-pointer group"
+              className="flex flex-col justify-between p-5 rounded-[16px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-accent-muted))] hover:shadow-[var(--shadow-md),0_0_16px_-8px_var(--glow-color)] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group min-h-[148px]"
               role="button"
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/documents/${doc.doc_id}`); }}
@@ -187,8 +187,8 @@ export function DocumentsPage() {
             >
               <div>
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-9 h-9 rounded-[8px] bg-[rgb(var(--color-surface))] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4.5 h-4.5 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-[44px] h-[44px] rounded-[12px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-accent))]/25 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-[22px] h-[22px] text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
@@ -196,7 +196,7 @@ export function DocumentsPage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-[15px] text-[rgb(var(--color-text))] truncate leading-snug">
+                  <h3 className="font-semibold text-[15.5px] text-[rgb(var(--color-text))] truncate leading-snug group-hover:text-[rgb(var(--color-accent))] transition-colors">
                     <Highlight text={doc.filename} query={search} />
                   </h3>
                   <div className="flex items-center gap-2 mt-2">
@@ -206,7 +206,7 @@ export function DocumentsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[rgb(var(--color-border-subtle))] flex items-center justify-between text-[12px] text-[rgb(var(--color-text-tertiary))] font-code">
+              <div className="mt-4 pt-3 border-t border-[rgb(var(--color-border))] flex items-center justify-between text-[12px] text-[rgb(var(--color-text-tertiary))] font-code">
                 <span>{doc.chunk_count} chunks</span>
                 <span>{new Date(doc.uploaded_at).toLocaleDateString()}</span>
               </div>

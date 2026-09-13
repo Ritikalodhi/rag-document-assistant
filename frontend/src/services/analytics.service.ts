@@ -21,7 +21,6 @@ export interface ServerInfo {
 export interface StatsData {
   collection_name: string;
   document_count: number;
-  persist_dir: string;
   bm25_docs: number;
 }
 

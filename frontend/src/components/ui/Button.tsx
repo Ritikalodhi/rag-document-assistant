@@ -13,36 +13,42 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary: [
-    'bg-[rgb(var(--color-accent))] text-white',
-    'hover:bg-[rgb(var(--color-accent-hover))]',
-    'shadow-[0_1px_3px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.08)_inset]',
-    'hover:shadow-[0_2px_8px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)_inset]',
+    'bg-[rgb(var(--color-btn-primary))] text-[rgb(var(--color-btn-primary-text))]',
+    'bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0)_42%)]',
+    'hover:bg-[rgb(var(--color-btn-primary-hover))]',
+    'shadow-[0_1px_2px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.08)]',
+    'hover:shadow-[0_2px_10px_rgba(0,0,0,0.28),0_0_18px_-6px_var(--glow-color),inset_0_1px_0_rgba(255,255,255,0.08)]',
     'active:scale-[0.97] active:shadow-none',
+    'transition-all duration-200',
   ].join(' '),
   secondary: [
-    'border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]',
+    'border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]',
     'text-[rgb(var(--color-text))]',
-    'hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-text-tertiary))]/50',
+    'hover:bg-[rgb(var(--color-elevated))] hover:border-[rgb(var(--color-accent-muted))]',
     'shadow-[var(--shadow-sm)]',
+    'hover:shadow-[var(--shadow-md)]',
     'active:scale-[0.97]',
+    'transition-all duration-200',
   ].join(' '),
   ghost: [
     'bg-transparent text-[rgb(var(--color-text-secondary))]',
     'hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))]',
     'active:scale-[0.97]',
+    'transition-all duration-200',
   ].join(' '),
   danger: [
     'bg-[rgb(var(--color-danger))] text-white',
     'hover:opacity-90',
     'shadow-[0_1px_3px_rgba(0,0,0,0.2)]',
     'active:scale-[0.97] active:shadow-none',
+    'transition-all duration-200',
   ].join(' '),
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-[13px] rounded-[8px] gap-1.5',
-  md: 'px-4 py-2 text-[14px] rounded-[10px] gap-2',
-  lg: 'px-5 py-2.5 text-[15px] rounded-[11px] gap-2',
+  sm: 'px-3 py-1.5 text-[13px] rounded-[10px] gap-1.5 h-[32px]',
+  md: 'px-4 py-2 text-[14px] rounded-[11px] gap-2 h-[40px]',
+  lg: 'px-5 py-2.5 text-[15px] rounded-[12px] gap-2 h-[44px]',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -68,7 +74,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           inline-flex items-center justify-center font-ui font-semibold
           transition-all duration-150 select-none
           focus-ring
-          disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
+          disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none disabled:shadow-none
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}

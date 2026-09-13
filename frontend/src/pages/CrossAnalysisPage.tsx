@@ -98,7 +98,7 @@ export function CrossAnalysisPage() {
             >
               <div
                 className={`w-4.5 h-4.5 rounded-[5px] border flex items-center justify-center flex-shrink-0 transition-colors ${isSel
-                    ? 'border-[rgb(var(--color-accent))] bg-[rgb(var(--color-accent))] text-white'
+                    ? 'border-[rgb(var(--color-accent))] bg-[rgb(var(--color-accent))] text-[rgb(var(--color-bg))]'
                     : 'border-[rgb(var(--color-border))]'
                   }`}
               >

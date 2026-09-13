@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { groupConversationsByDate } from '@/utils/time';
-import { useDeleteConversation, useClearConversations } from '@/features/chat/hooks/useConversations';
+import { useDeleteConversation, useClearConversations, useRenameConversation } from '@/features/chat/hooks/useConversations';
 import { Dialog, Skeleton, EmptyState, ErrorState, Button } from '@/components/ui';
 import type { ConversationEntry } from '@/types';
 
@@ -26,6 +26,7 @@ export function ConversationSidebar({
   const [clearConfirm, setClearConfirm] = useState(false);
   const deleteConv = useDeleteConversation();
   const clearConvs = useClearConversations();
+  const renameConv = useRenameConversation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -38,16 +39,11 @@ export function ConversationSidebar({
   const handleRenameSubmit = async (id: string) => {
     if (!renameValue.trim()) { setRenamingId(null); return; }
     try {
-      await fetch(`/api/conversations/${id}/title`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ title: renameValue.trim() }),
-      });
+      await renameConv.mutateAsync({ entryId: id, title: renameValue.trim() });
       onRefetch();
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Failed to rename conversation', err);
+    }
     setRenamingId(null);
   };
 
@@ -79,25 +75,25 @@ export function ConversationSidebar({
         <h2 className="font-ui text-caption font-medium text-[rgb(var(--color-text-secondary))] uppercase tracking-wider text-[11px]">
           Conversations
         </h2>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={onNewConversation}
-            className="p-1.5 rounded-[6px] hover:bg-[rgb(var(--color-surface))] transition-colors"
+            className="p-2.5 rounded-[8px] hover:bg-[rgb(var(--color-surface))] transition-colors"
             aria-label="New conversation"
             title="New conversation"
           >
-            <svg className="w-4 h-4 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
           {conversations && conversations.length > 0 && (
             <button
               onClick={() => setClearConfirm(true)}
-              className="p-1.5 rounded-[6px] hover:bg-[rgb(var(--color-surface))] transition-colors"
+              className="p-2.5 rounded-[8px] hover:bg-[rgb(var(--color-surface))] transition-colors"
               aria-label="Clear all conversations"
               title="Clear all"
             >
-              <svg className="w-4 h-4 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>

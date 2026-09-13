@@ -96,7 +96,7 @@ export function CollectionsPage() {
       <motion.div {...motionProps(0)}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-[26px] sm:text-[28px] font-display font-semibold tracking-tight text-[rgb(var(--color-text))]">Collections</h1>
+            <h1 className="text-[28px] sm:text-[30px] font-ui font-bold tracking-tight text-[rgb(var(--color-text))]">Collections</h1>
             <p className="text-[14px] text-[rgb(var(--color-text-secondary))] mt-1">Organize your document library into focused research groups.</p>
           </div>
           <Button onClick={() => { setNewName(''); setCreateOpen(true); }}>
@@ -166,7 +166,7 @@ export function CollectionsPage() {
             <div
               key={col.collection_id}
               onClick={() => navigate(`/collections/${col.collection_id}`)}
-              className="flex flex-col justify-between p-4.5 rounded-[10px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-text-tertiary))]/50 transition-all duration-150 cursor-pointer group"
+              className="flex flex-col justify-between p-5 rounded-[16px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-accent-muted))] transition-all duration-150 cursor-pointer group min-h-[160px]"
               role="button"
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/collections/${col.collection_id}`); }}
@@ -174,14 +174,14 @@ export function CollectionsPage() {
             >
               <div className="flex flex-col gap-3">
                 <div className="flex items-start justify-between">
-                  <div className="w-9 h-9 rounded-[8px] bg-[rgb(var(--color-surface))] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4.5 h-4.5 text-[rgb(var(--color-text-secondary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-[44px] h-[44px] rounded-[12px] bg-[rgb(var(--color-accent-muted))] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-[22px] h-[22px] text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); setRenameOpen(col.collection_id); setRenameValue(col.name); }}
-                    className="p-1.5 rounded-[6px] hover:bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text-tertiary))] hover:text-[rgb(var(--color-text-secondary))] transition-colors"
+                    className="p-1.5 rounded-[8px] hover:bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text-tertiary))] hover:text-[rgb(var(--color-text-secondary))] transition-colors"
                     aria-label={`Rename ${col.name}`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -190,7 +190,7 @@ export function CollectionsPage() {
                   </button>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-[15px] text-[rgb(var(--color-text))] truncate">{col.name}</h3>
+                  <h3 className="font-semibold text-[15.5px] text-[rgb(var(--color-text))] truncate group-hover:text-[rgb(var(--color-accent))] transition-colors">{col.name}</h3>
                   <p className="text-[12px] font-code text-[rgb(var(--color-text-tertiary))] mt-1">
                     {col.doc_ids.length} document{col.doc_ids.length !== 1 ? 's' : ''}
                     {' · '}{new Date(col.created_at).toLocaleDateString()}
@@ -198,7 +198,7 @@ export function CollectionsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-3 mt-3 border-t border-[rgb(var(--color-border-subtle))] text-[12px]">
+              <div className="flex items-center justify-between pt-3 mt-3 border-t border-[rgb(var(--color-border))] text-[12px]">
                 <button
                   onClick={(e) => { e.stopPropagation(); setDeleteConfirm(col.collection_id); }}
                   className="font-medium text-[rgb(var(--color-danger))] hover:underline"

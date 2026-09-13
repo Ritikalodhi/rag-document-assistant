@@ -117,3 +117,19 @@ class DocumentVersionStore:
                 if char_diff != 0 else f"Versions {v1} and {v2} have identical content."
             ),
         }
+
+    def delete_doc_version(self, user_id: str, filename: str, doc_id: str) -> bool:
+        """Remove version metadata associated with one failed document write."""
+        with self._lock:
+            data = self._read()
+            key = f"{user_id}:{filename}"
+            versions = data.get(key, [])
+            filtered = [v for v in versions if v.get("doc_id") != doc_id]
+            if len(filtered) == len(versions):
+                return False
+            if filtered:
+                data[key] = filtered
+            else:
+                data.pop(key, None)
+            self._write(data)
+            return True

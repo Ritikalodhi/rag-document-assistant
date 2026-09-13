@@ -3,8 +3,8 @@ import { useToast } from '@/contexts/ToastContext';
 
 const iconMap = {
   success: (
-    <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-      <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div className="w-7 h-7 rounded-full bg-[rgb(var(--color-accent-muted))] flex items-center justify-center flex-shrink-0">
+      <svg className="w-3.5 h-3.5 text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
       </svg>
     </div>

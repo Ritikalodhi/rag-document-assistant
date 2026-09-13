@@ -126,9 +126,14 @@ export const documentsService = {
   },
 
   async crossAnalysis(docIds: string[]): Promise<CrossAnalysisResult> {
-    const response = await api.post<CrossAnalysisResult>(`${DOC_PATH}/cross-analysis`, {
-      doc_ids: docIds,
-    });
+    // Cross-analysis makes N+1 sequential LLM calls (one per document + one
+    // synthesis), so it can legitimately exceed the shared 30s axios timeout.
+    // Per-request override only — global default stays 30s.
+    const response = await api.post<CrossAnalysisResult>(
+      `${DOC_PATH}/cross-analysis`,
+      { doc_ids: docIds },
+      { timeout: 120000 },
+    );
     return response.data;
   },
 };

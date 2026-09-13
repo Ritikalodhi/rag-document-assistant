@@ -14,6 +14,7 @@ langchain-openai>=0.2.14
 # It now uses google-genai (the new unified SDK) — do NOT add google-generativeai
 # alongside it or you will get a google-ai-generativelanguage version conflict.
 langchain-google-genai>=4.0.0
+langchain-experimental>=0.3.4
 
 # ── Vector database ───────────────────────────────────────────────────────────
 # langchain-chroma >=1.0.0 requires chromadb >=1.0.0
@@ -23,6 +24,10 @@ langchain-chroma>=1.0.0
 # ── Document parsing ──────────────────────────────────────────────────────────
 pypdf>=4.2.0
 pdfplumber>=0.10.0
+pytesseract>=0.3.13
+Pillow>=10.4.0
+pdf2image>=1.17.0
+fpdf2>=2.8.0
 # used by Docx2txtLoader in langchain-community
 docx2txt>=0.8   
 # kept for any direct python-docx usage       

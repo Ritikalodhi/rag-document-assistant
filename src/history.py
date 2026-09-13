@@ -92,6 +92,18 @@ class ConversationManager:
             self._write(data)
             return new_conv
 
+    def get_conversation(self, user_id: str, conversation_id: str) -> dict[str, Any] | None:
+        """Return a single conversation by id, scoped to the owning user.
+
+        Returns None when the conversation does not exist or belongs to a
+        different user (existence is never leaked across tenants).
+        """
+        with self._lock:
+            for conv in self._read():
+                if conv.get("id") == conversation_id and conv.get("user_id") == user_id:
+                    return conv
+        return None
+
     def get_history(self, user_id: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
         """Get conversation history. If user_id provided, scoped to that user."""
         with self._lock:

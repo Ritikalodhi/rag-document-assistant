@@ -24,6 +24,10 @@ Answer ONLY using the retrieved context below.
 
 Guidelines:
 - Read ALL retrieved chunks before answering.
+- Treat the retrieved context as one evidence set, not as a single best-match excerpt.
+- Before drafting, identify the claims needed for each part of the question and gather supporting details from every relevant chunk. Combine complementary facts across chunks into one answer.
+- Do not stop after finding an answer in one chunk when other retrieved chunks may add requested details, qualifiers, metrics, or later subsections.
+- Include a claim only when it is supported by the retrieved context; if relevant chunks disagree, report the disagreement rather than choosing or inventing a value.
 - If the question has multiple parts (e.g., methodology + results), answer each part separately with its own heading.
 - Never say information is unavailable unless you have checked all retrieved context.
 - Preserve exact terminology from the paper (BLEU Score, METEOR Score, Top-1 Accuracy, F1 Score, etc.).
@@ -40,6 +44,8 @@ Guidelines:
 - When explaining a section (e.g., Methodology), cover EVERY subsection under that heading — do not stop after the first one.
 - For Methodology sections, always include: Overview, Data Collection/Preprocessing, Model Design/Architecture, Training Strategy, and Deployment if present.
 - If a subsection contains architecture details or hyperparameters (layers, heads, optimizer, dropout, learning rate, steps), include all of them.
+- When explaining a process, workflow, architecture pipeline, or sequence of steps, present each step separately on its own line or as a bullet/numbered item. Leave one blank line between separate paragraph-style steps, and preserve the original order from the retrieved document.
+- Clearly distinguish information explicitly stated in the retrieved document from inference. If an inference is necessary, label it "Inference:" and ensure it is directly supported by the retrieved context. Do not make unsupported inferences or present them as explicitly stated.
 - Prefer completeness over brevity — do not omit later subsections because the answer is already long.
 - Preserve the paper's original section hierarchy when structuring answers.
 - Never compress or skip subsections to shorten the response.
@@ -78,15 +84,29 @@ Answer ONLY using the retrieved context below. Use conversation history only to 
 
 Guidelines:
 - Read ALL retrieved chunks before answering.
-- If the question has multiple parts, answer each with its own heading.
-- Preserve exact metric names and values from the paper.
+- Treat the retrieved context as one evidence set, not as a single best-match excerpt.
+- Before drafting, identify the claims needed for each part of the question and gather supporting details from every relevant chunk. Combine complementary facts across chunks into one answer.
+- Do not stop after finding an answer in one chunk when other retrieved chunks may add requested details, qualifiers, metrics, or later subsections.
+- Include a claim only when it is supported by the retrieved context; if relevant chunks disagree, report the disagreement rather than choosing or inventing a value.
+- If the question has multiple parts, answer each part separately with its own heading.
+- Never say information is unavailable unless you have checked all retrieved context.
+- Preserve exact terminology from the paper, including metric names, values, units, and relationships.
+- If the user asks for "accuracy" but the paper reports different metrics, say: "The paper does not report classification accuracy. Instead it reports:" then list them.
 - Include EVERY numerical metric — do not omit values.
+- For benchmark comparisons, separately report: overall evaluation metrics, then baseline comparisons.
 - Distinguish: Methodology / Architecture / Training / Implementation / Results.
-- Do not hallucinate. Missing information → say so explicitly.
+- Structure answers with headings and bullet points.
+- If part of the question cannot be answered from context, state exactly what is missing rather than saying "no information exists."
+- Do not hallucinate. If a value is not in the context, say: "The retrieved context does not provide this information."
+- Implementation details (software stack, libraries, language, deployment) belong under Implementation, NOT Methodology.
+- When looking for results, prioritize chunks whose headings contain: Results, Evaluation, Performance, Experiments, Benchmarks, Metrics.
+- Do not compress or summarize away numerical values — report every number explicitly.
 - Structure with headings and bullet points.
 - When explaining a section (e.g., Methodology), cover EVERY subsection under that heading — do not stop after the first one.
 - For Methodology sections, always include: Overview, Data Collection/Preprocessing, Model Design/Architecture, Training Strategy, and Deployment if present.
 - If a subsection contains architecture details or hyperparameters (layers, heads, optimizer, dropout, learning rate, steps), include all of them.
+- When explaining a process, workflow, architecture pipeline, or sequence of steps, present each step separately on its own line or as a bullet/numbered item. Leave one blank line between separate paragraph-style steps, and preserve the original order from the retrieved document.
+- Clearly distinguish information explicitly stated in the retrieved document from inference. If an inference is necessary, label it "Inference:" and ensure it is directly supported by the retrieved context. Do not make unsupported inferences or present them as explicitly stated.
 - Prefer completeness over brevity — do not omit later subsections because the answer is already long.
 - Preserve the paper's original section hierarchy when structuring answers.
 - Never compress or skip subsections to shorten the response.
@@ -205,6 +225,14 @@ class LLMManager:
                 "google_api_key": GEMINI_API_KEY,
                 "model": model_name,
                 "max_output_tokens": 16384,
+                # Bound every attempt and disable SDK-internal retry/backoff:
+                # on 429 RESOURCE_EXHAUSTED the SDK otherwise stalls each
+                # invoke() for ~35s before surfacing the error, so the retry +
+                # fallback chain in _invoke_with_retry/_invoke only kicks in
+                # after minutes. Fail fast here instead; retry/backoff and
+                # fallback-model selection remain owned by this class.
+                "timeout": self.request_timeout,
+                "max_retries": 0,
             }
             if not model_name.startswith("gemini-3") and model_name != "gemini-flash-latest":
                 kwargs["temperature"] = self.temperature

@@ -21,7 +21,7 @@ export function NotFoundPage() {
         <p
           className="text-[120px] font-display font-semibold leading-none mb-4 select-none"
           style={{
-            background: 'linear-gradient(135deg, rgb(var(--color-accent)) 0%, rgb(139,92,246) 100%)',
+            background: 'linear-gradient(135deg, #B8EFC8 0%, #315540 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',

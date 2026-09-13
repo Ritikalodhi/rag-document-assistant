@@ -31,7 +31,7 @@ export function ConfidenceBadge({ grade, compositeScore, grounded }: ConfidenceB
     high: {
       label: 'High confidence',
       icon: '✦',
-      classes: 'text-emerald-600 dark:text-emerald-400',
+      classes: 'text-[rgb(var(--color-accent))] dark:text-[rgb(var(--color-accent))]',
     },
     medium: {
       label: 'Medium confidence',

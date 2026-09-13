@@ -13,4 +13,5 @@ export { CollectionDetailPage } from './CollectionDetailPage';
 export { ComparePage } from './ComparePage';
 export { CrossAnalysisPage } from './CrossAnalysisPage';
 export { SettingsPage } from './SettingsPage';
+export { StudyNotesPage } from './StudyNotesPage';
 

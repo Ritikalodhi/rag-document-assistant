@@ -38,19 +38,19 @@ const stageLabels: Record<string, string> = {
 const stageConfig: Record<UploadStage, { color: string; label: string; gradient?: string }> = {
   idle: { color: '', label: '' },
   uploading: {
-    color: 'bg-[rgb(var(--color-accent))]',
+    color: 'bg-[rgb(var(--color-btn-primary))]',
     label: 'Uploading...',
-    gradient: 'from-[rgb(var(--color-accent))] to-indigo-500',
+    gradient: 'from-[rgb(var(--color-btn-primary))] to-[rgb(var(--color-accent-muted))]',
   },
   processing: {
-    color: 'bg-[rgb(var(--color-accent))]',
+    color: 'bg-[rgb(var(--color-btn-primary))]',
     label: 'Processing...',
-    gradient: 'from-[rgb(var(--color-accent))] to-violet-500',
+    gradient: 'from-[rgb(var(--color-btn-primary))] to-[rgb(var(--color-accent-muted))]',
   },
   completed: {
-    color: 'bg-[rgb(var(--color-success))]',
+    color: 'bg-[rgb(var(--color-accent))]',
     label: 'Completed',
-    gradient: 'from-emerald-500 to-teal-500',
+    gradient: 'from-[rgb(var(--color-accent-muted))] to-[rgb(var(--color-btn-primary))]',
   },
   failed: {
     color: 'bg-[rgb(var(--color-danger))]',
@@ -275,16 +275,16 @@ export function UploadPage() {
                       <p className="font-semibold text-[14px] text-[rgb(var(--color-text))] truncate">{upload.filename}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         {upload.stage === 'completed' && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#B8EFC8] flex-shrink-0" />
                         )}
                         {upload.stage === 'failed' && (
                           <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
                         )}
                         {(upload.stage === 'uploading' || upload.stage === 'processing') && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--color-accent))] flex-shrink-0 animate-pulse" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#315540] flex-shrink-0 animate-pulse" />
                         )}
                         <p className={`text-[12px] font-medium ${
-                          upload.stage === 'completed' ? 'text-emerald-500' :
+                          upload.stage === 'completed' ? 'text-[#B8EFC8]' :
                           upload.stage === 'failed' ? 'text-[rgb(var(--color-danger))]' :
                           'text-[rgb(var(--color-text-secondary))]'
                         }`}>

@@ -24,7 +24,8 @@ services:
       - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-CHANGE_ME_IN_ENV}
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=INFO
     volumes:

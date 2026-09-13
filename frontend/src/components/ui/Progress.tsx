@@ -15,9 +15,9 @@ const sizeClasses = {
 
 const colorClasses = {
   accent: 'bg-[rgb(var(--color-accent))]',
-  success: 'bg-green-500',
+  success: 'bg-[rgb(var(--color-success))]',
   warning: 'bg-yellow-500',
-  error: 'bg-red-500',
+  error: 'bg-[rgb(var(--color-danger))]',
 };
 
 export function Progress({ value, max = 100, size = 'md', color = 'accent', showLabel = false, className = '' }: ProgressProps) {

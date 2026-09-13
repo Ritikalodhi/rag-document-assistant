@@ -98,10 +98,12 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower().strip()
 
 # ── JWT Secret ────────────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_IN_ENV")
-if SECRET_KEY == "CHANGE_ME_IN_ENV":
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "").strip()
+_INSECURE_SECRET_PLACEHOLDERS = {"", "CHANGE_ME_IN_ENV", "change-me-in-production"}
+if SECRET_KEY in _INSECURE_SECRET_PLACEHOLDERS:
     if ENVIRONMENT == "production":
         raise RuntimeError("JWT_SECRET_KEY must be set in production")
+    SECRET_KEY = "CHANGE_ME_IN_ENV"
     logger.warning("Using default JWT_SECRET_KEY — do not use in production")
 
 # ── CORS ──────────────────────────────────────────────────────────────────────

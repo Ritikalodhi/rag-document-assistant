@@ -224,7 +224,7 @@ export function ComparePage() {
               <div className="flex flex-col gap-2">
                 {result.comparison.matching_points.map((point, i) => (
                   <div key={i} className="flex items-start gap-3 p-3.5 rounded-[8px] bg-emerald-500/5 border border-emerald-500/20 text-[14px] text-[rgb(var(--color-text))]">
-                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">✓</span>
+                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-emerald-500 text-emerald-950 flex items-center justify-center text-[10px] font-bold flex-shrink-0">✓</span>
                     <p className="leading-relaxed">{point}</p>
                   </div>
                 ))}
@@ -239,7 +239,7 @@ export function ComparePage() {
               <div className="flex flex-col gap-2">
                 {result.comparison.missing_in_a.map((point, i) => (
                   <div key={i} className="flex items-start gap-3 p-3.5 rounded-[8px] bg-amber-500/5 border border-amber-500/20 text-[14px] text-[rgb(var(--color-text))]">
-                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">!</span>
+                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[10px] font-bold flex-shrink-0">!</span>
                     <p className="leading-relaxed">{point}</p>
                   </div>
                 ))}
@@ -254,7 +254,7 @@ export function ComparePage() {
               <div className="flex flex-col gap-2">
                 {result.comparison.missing_in_b.map((point, i) => (
                   <div key={i} className="flex items-start gap-3 p-3.5 rounded-[8px] bg-orange-500/5 border border-orange-500/20 text-[14px] text-[rgb(var(--color-text))]">
-                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">!</span>
+                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-orange-500 text-orange-950 flex items-center justify-center text-[10px] font-bold flex-shrink-0">!</span>
                     <p className="leading-relaxed">{point}</p>
                   </div>
                 ))}
@@ -269,7 +269,7 @@ export function ComparePage() {
               <div className="flex flex-col gap-2">
                 {result.comparison.recommendations.map((rec, i) => (
                   <div key={i} className="flex items-start gap-3 p-3.5 rounded-[8px] bg-blue-500/5 border border-blue-500/20 text-[14px] text-[rgb(var(--color-text))]">
-                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-[rgb(var(--color-accent))] text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">→</span>
+                    <span className="mt-0.5 w-4.5 h-4.5 rounded-full bg-[rgb(var(--color-accent))] text-[rgb(var(--color-bg))] flex items-center justify-center text-[10px] font-bold flex-shrink-0">→</span>
                     <p className="leading-relaxed">{rec}</p>
                   </div>
                 ))}

@@ -54,10 +54,40 @@ def _to_markdown_study_notes(filename: str, notes: dict) -> str:
 def _to_markdown_history(conversations: list[dict]) -> str:
     lines = [f"# Chat History\nExported: {datetime.now(timezone.utc).isoformat()}\n"]
     for c in conversations:
-        lines.append(f"---\n**Q:** {c.get('question','')}\n**A:** {c.get('answer','')}\n")
-        for ctx in c.get("context", []):
-            lines.append(f"> Source: {ctx.get('source','')} | Confidence: {ctx.get('confidence_percent','')}%")
-        lines.append("")
+        title = c.get("title")
+        if title:
+            lines.append(f"## {title}\n")
+        messages = c.get("messages") or []
+        if messages:
+            # Real schema: an ordered list of user/assistant messages. Every
+            # exchange is exported in chronological order, not just the
+            # conversation's first question/answer.
+            pending_question: str | None = None
+            for msg in messages:
+                role = msg.get("role")
+                content = (msg.get("content") or "").strip()
+                if role == "user":
+                    pending_question = content
+                    continue
+                if role != "assistant":
+                    continue
+                if pending_question is not None:
+                    lines.append(f"**Q:** {pending_question}\n")
+                    pending_question = None
+                lines.append(f"**A:** {content}\n")
+                for ctx in msg.get("context") or []:
+                    lines.append(
+                        f"> Source: {ctx.get('source','')} | Confidence: {ctx.get('confidence_percent','')}%"
+                    )
+                lines.append("")
+            if pending_question is not None:
+                lines.append(f"**Q:** {pending_question}\n")
+        else:
+            # Legacy schema: a single Q&A frozen on the conversation record.
+            lines.append(f"**Q:** {c.get('question','')}\n**A:** {c.get('answer','')}\n")
+            for ctx in c.get("context") or []:
+                lines.append(f"> Source: {ctx.get('source','')} | Confidence: {ctx.get('confidence_percent','')}%")
+            lines.append("")
     return "\n".join(lines)
 
 

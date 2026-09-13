@@ -59,8 +59,17 @@ def create_user(user_id: str, email: str, username: str, hashed_password: str, c
     if get_user_by_email(email) is not None:
         raise ValueError("Email already registered")
     with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO users (id, email, username, hashed_password, created_at) VALUES (?, ?, ?, ?, ?)",
-            (user_id, email, username, hashed_password, created_at),
-        )
-        conn.commit()
+        try:
+            conn.execute(
+                "INSERT INTO users (id, email, username, hashed_password, created_at) VALUES (?, ?, ?, ?, ?)",
+                (user_id, email, username, hashed_password, created_at),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError as e:
+            conn.rollback()
+            msg = str(e).lower()
+            if "username" in msg:
+                raise ValueError("Username already taken")
+            if "email" in msg:
+                raise ValueError("Email already registered")
+            raise ValueError("User already exists")

@@ -116,13 +116,20 @@ class CrossEncoderReranker:
 
         if self._available:
             rerank_scores = self._score_batch(query, docs)
+            combined_scores = [
+                self._combine(orig, rerank)
+                for orig, rerank in zip(original_scores, rerank_scores)
+            ]
         else:
             # Cross-encoder unavailable: there is no second-stage signal at
-            # all. Do NOT normalise relative candidate ranks into fake
-            # absolute relevance — preserve the original retrieval scores
-            # untouched so ordering and displayed relevance both reflect
-            # the first-stage retriever only.
+            # all. Do NOT run scores through _combine() (which would distort
+            # them, e.g. sqrt(orig_norm * 1.0) != orig_norm) — preserve the
+            # original retrieval scores untouched so ordering and displayed
+            # relevance both reflect the first-stage retriever only.
             rerank_scores = [1.0] * len(docs)
+            combined_scores = [
+                max(0.0, min(1.0, orig / 100.0)) for orig in original_scores
+            ]
 
         # Build results
         results = [
@@ -130,9 +137,9 @@ class CrossEncoderReranker:
                 document=doc,
                 original_score=orig,
                 rerank_score=rerank,
-                combined_score=self._combine(orig, rerank),
+                combined_score=combined,
             )
-            for doc, orig, rerank in zip(docs, original_scores, rerank_scores)
+            for doc, orig, rerank, combined in zip(docs, original_scores, rerank_scores, combined_scores)
         ]
 
         # Sort by combined score descending
@@ -189,21 +196,11 @@ class CrossEncoderReranker:
         probability of correctness and must not be presented to users as
         "answer confidence".
 
-        Design:
-        - ``retrieval_score`` is the 0-100 relevance from the first-stage
-          hybrid retriever (dense cosine-similarity based).
-        - ``rerank_score`` is the sigmoid of the cross-encoder logit, i.e. a
-          relative relevance signal in (0, 1). Sigmoids from MS-MARCO
-          cross-encoders are NOT calibrated probabilities, so we only use
-          this signal to re-order candidates, not to fabricate an absolute
-          confidence figure.
-        - The geometric mean is used instead of ``max(retrieval, blend)``:
-          the cross-encoder must be able to LOWER a candidate that the
-          first stage ranked highly but it judges irrelevant.
+        Uses the true geometric mean: sqrt(orig_norm * rerank). A geometric
+        mean punishes disagreement between the two signals less harshly than
+        a plain product when both signals are reasonably high, while still
+        pulling the score down hard when either signal is very low.
         """
         orig_norm = max(0.0, min(1.0, retrieval_score / 100.0))
         rerank = max(0.0, min(1.0, rerank_score))
-        # Geometric mean punishes disagreement between the two signals in
-        # both directions (either signal alone cannot prop the score up).
-        return orig_norm * rerank
-
+        return math.sqrt(orig_norm * rerank)

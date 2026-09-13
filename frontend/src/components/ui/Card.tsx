@@ -17,9 +17,10 @@ export function Card({ children, padding = 'md', hover = false, className = '', 
   return (
     <div
       className={`
-        border border-[rgb(var(--color-border))] rounded bg-[rgb(var(--color-bg))]
+        rounded-[18px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]
+        shadow-[var(--shadow-sm),inset_0_1px_0_rgba(255,255,255,0.04)]
         ${paddingStyles[padding]}
-        ${hover ? 'transition-shadow duration-150 hover:shadow-sm cursor-pointer' : ''}
+        ${hover ? 'transition-all duration-200 hover:border-[rgb(var(--color-accent-muted))] hover:shadow-[var(--shadow-md),0_0_20px_-8px_var(--glow-color)] hover:-translate-y-0.5 cursor-pointer' : 'transition-shadow duration-200'}
         ${className}
       `}
       {...props}

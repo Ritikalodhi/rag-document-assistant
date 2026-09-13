@@ -119,11 +119,11 @@ export function ChatComposer({ onSend, onAbort, onFileUpload, isLoading }: ChatC
                     };
                     fileInput.click();
                   }}
-                  className="p-1.5 rounded-[6px] hover:bg-[rgb(var(--color-surface))] transition-colors text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))]"
+                  className="p-2.5 rounded-[8px] hover:bg-[rgb(var(--color-surface))] transition-colors text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))]"
                   aria-label="Attach file"
                   title="Attach file"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                 </button>
@@ -138,11 +138,11 @@ export function ChatComposer({ onSend, onAbort, onFileUpload, isLoading }: ChatC
               {isLoading ? (
                 <button
                   onClick={onAbort}
-                  className="p-1.5 rounded-full bg-[rgb(var(--color-surface))] hover:bg-red-500/10 text-red-500 transition-colors"
+                  className="p-2.5 rounded-full bg-[rgb(var(--color-surface))] hover:bg-red-500/10 text-red-500 transition-colors"
                   aria-label="Stop generating"
                   title="Stop generating"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <rect x="7" y="7" width="10" height="10" rx="1" fill="currentColor" />
                   </svg>
                 </button>
@@ -150,7 +150,7 @@ export function ChatComposer({ onSend, onAbort, onFileUpload, isLoading }: ChatC
                 <button
                   onClick={handleSend}
                   disabled={!input.trim()}
-                  className="w-7 h-7 rounded-full bg-[rgb(var(--color-accent))] text-white flex items-center justify-center transition-opacity disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90 flex-shrink-0"
+                  className="w-7 h-7 rounded-full bg-[rgb(var(--color-btn-primary))] text-[rgb(var(--color-btn-primary-text))] hover:bg-[rgb(var(--color-btn-primary-hover))] flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
                   aria-label="Send message"
                 >
                   <svg

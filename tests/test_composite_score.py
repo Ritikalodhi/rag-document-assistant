@@ -79,6 +79,18 @@ def test_weak_retrieval_plausible_answer(scorer):
     assert result["retrieval_relevance"] == 25.0
 
 
+def test_retrieval_relevance_averages_top_two_chunks(scorer):
+    context = [
+        {"content": "The answer is supported here.", "retrieval_relevance": 90.0},
+        {"content": "Additional supporting evidence.", "retrieval_relevance": 85.0},
+        {"content": "Unrelated filler context.", "retrieval_relevance": 20.0},
+    ]
+
+    result = _score(scorer, "What is the answer?", "The answer is supported here.", context)
+
+    assert result["retrieval_relevance"] == 87.5
+
+
 def test_short_correct_answer_scores_high(scorer):
     q = "How many encoder layers does the model have?"
     result = _score(scorer, q, "6", _ctx(SUPPORTIVE_CONTEXT))

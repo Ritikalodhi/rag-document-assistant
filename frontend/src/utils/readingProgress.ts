@@ -1,9 +1,12 @@
 const READING_PROGRESS_KEY = 'rag-reading-progress';
 
-interface ReadingData {
+export interface ReadingData {
   title: string;
   progress: number;
   lastOpened: number;
+  currentPage?: number;
+  totalPages?: number;
+  section?: string;
 }
 
 export function getReadingProgress(): Record<string, ReadingData> {
@@ -14,7 +17,16 @@ export function getReadingProgress(): Record<string, ReadingData> {
   }
 }
 
-export function saveReadingProgress(docId: string, data: { title: string; progress: number }) {
+export function saveReadingProgress(
+  docId: string,
+  data: {
+    title: string;
+    progress: number;
+    currentPage?: number;
+    totalPages?: number;
+    section?: string;
+  }
+) {
   const existing = getReadingProgress();
   existing[docId] = { ...data, lastOpened: Date.now() };
   localStorage.setItem(READING_PROGRESS_KEY, JSON.stringify(existing));

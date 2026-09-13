@@ -27,6 +27,23 @@ export function useDeleteConversation() {
   });
 }
 
+export function useRenameConversation() {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ entryId, title }: { entryId: string; title: string }) =>
+      chatService.renameConversation(entryId, title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_KEY });
+      addToast('success', 'Conversation renamed');
+    },
+    onError: () => {
+      addToast('error', 'Failed to rename conversation');
+    },
+  });
+}
+
 export function useClearConversations() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();

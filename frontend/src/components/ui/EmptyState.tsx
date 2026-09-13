@@ -20,12 +20,12 @@ export function EmptyState({ illustration, title, description, primaryCta, secon
   return (
     <div className="flex flex-col items-center justify-center py-16 px-8 text-center max-w-md mx-auto">
       {illustration && (
-        <div className="mb-8 text-[rgb(var(--color-text-secondary))]">
+        <div className="empty-state-icon [&_svg]:w-[30px] [&_svg]:h-[30px]">
           {illustration}
         </div>
       )}
-      <h2 className="text-h2 font-display mb-3">{title}</h2>
-      <p className="text-body text-[rgb(var(--color-text-secondary))] mb-8">
+      <h2 className="text-[21px] font-ui font-semibold tracking-[-0.01em] text-[rgb(var(--color-text))] mb-2.5">{title}</h2>
+      <p className="text-[14.5px] text-[rgb(var(--color-text-secondary))] mb-8 leading-relaxed">
         {description}
       </p>
       <div className="flex flex-col sm:flex-row gap-3">
@@ -39,7 +39,7 @@ export function EmptyState({ illustration, title, description, primaryCta, secon
         )}
       </div>
       {tip && (
-        <p className="mt-8 text-caption text-[rgb(var(--color-text-secondary))]">
+        <p className="mt-8 text-[13px] text-[rgb(var(--color-text-tertiary))]">
           💡 {tip}
         </p>
       )}

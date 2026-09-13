@@ -103,7 +103,7 @@ export function SourceDrawer({
                     onClick={() => onActiveChange(i)}
                     className={`w-7 h-7 rounded-[4px] text-caption font-medium border transition-colors ${
                       i === activeIndex
-                        ? 'bg-[rgb(var(--color-accent))] text-white border-[rgb(var(--color-accent))]'
+                        ? 'bg-[rgb(var(--color-accent))] text-[rgb(var(--color-bg))] border-[rgb(var(--color-accent))]'
                         : 'border-[rgb(var(--color-border))] text-[rgb(var(--color-text-secondary))] hover:border-[rgb(var(--color-accent))] hover:text-[rgb(var(--color-accent))]'
                     }`}
                   >

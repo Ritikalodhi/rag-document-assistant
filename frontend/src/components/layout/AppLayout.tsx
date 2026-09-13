@@ -4,11 +4,18 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
+import { useConversations } from '@/features/chat/hooks/useConversations';
+import { useCollections } from '@/features/collections/hooks/useCollections';
 
 export function AppLayout() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const { data: documents } = useDocuments();
+  const { data: conversations } = useConversations();
+  const { data: collections } = useCollections();
+
   const docCount = documents?.length;
+  const conversationCount = conversations?.length;
+  const collectionCount = collections?.length;
 
   const toggleMobileDrawer = useCallback(() => {
     setMobileDrawerOpen((prev) => !prev);
@@ -19,16 +26,20 @@ export function AppLayout() {
   ]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[rgb(var(--color-bg))]">
+    <div className="app-ui flex h-screen w-full overflow-hidden bg-[rgb(var(--color-bg))]">
       {/* ── Desktop sidebar ── */}
-      <div className="hidden lg:flex lg:flex-shrink-0">
-        <Sidebar docCount={docCount} />
+      <div className="hidden lg:flex lg:flex-shrink-0 w-[260px]">
+        <Sidebar
+          docCount={docCount}
+          conversationCount={conversationCount}
+          collectionCount={collectionCount}
+        />
       </div>
 
       {/* ── Mobile: backdrop overlay ── */}
       {mobileDrawerOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/30 dark:bg-black/60 lg:hidden"
           onClick={() => setMobileDrawerOpen(false)}
           aria-hidden="true"
         />
@@ -40,18 +51,22 @@ export function AppLayout() {
           mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <Sidebar docCount={docCount} />
+        <Sidebar
+          docCount={docCount}
+          conversationCount={conversationCount}
+          collectionCount={collectionCount}
+        />
       </div>
 
       {/* ── Main content area ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
         <Topbar onMenuToggle={toggleMobileDrawer} />
 
         <main
-          className="flex-1 overflow-y-auto scrollbar-thin"
+          className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
           id="main-content"
         >
-          <div className="p-4 sm:p-6 lg:p-8 max-w-content w-full mx-auto">
+          <div className="px-6 py-6 lg:px-8 lg:py-8 max-w-[1380px] w-full mx-auto min-w-0">
             <Outlet />
           </div>
         </main>

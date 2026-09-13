@@ -36,6 +36,33 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          p: ({ children }) => (
+            <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>
+          ),
+          h1: ({ children }) => (
+            <h1 className="mt-6 mb-3 text-h2 font-display font-semibold first:mt-0">{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="mt-6 mb-3 text-h3 font-display font-semibold first:mt-0">{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="mt-5 mb-2 text-h3 font-display font-semibold first:mt-0">{children}</h3>
+          ),
+          h4: ({ children }) => (
+            <h4 className="mt-4 mb-2 font-semibold first:mt-0">{children}</h4>
+          ),
+          h5: ({ children }) => (
+            <h5 className="mt-4 mb-2 font-semibold first:mt-0">{children}</h5>
+          ),
+          h6: ({ children }) => (
+            <h6 className="mt-4 mb-2 font-semibold first:mt-0">{children}</h6>
+          ),
+          ul: ({ children }) => (
+            <ul className="mb-4 list-disc space-y-4 pl-6 last:mb-0">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="mb-4 list-decimal space-y-4 pl-6 last:mb-0">{children}</ol>
+          ),
           pre: ({ children }) => {
             let codeText = '';
             const child = Array.isArray(children) ? children[0] : children;

@@ -130,6 +130,14 @@ export const chatService = {
     return response.data;
   },
 
+  async renameConversation(entryId: string, title: string): Promise<{ success: boolean; title: string }> {
+    const response = await api.patch<{ success: boolean; title: string }>(
+      `${CONVERSATIONS_PATH}/${entryId}/title`,
+      { title },
+    );
+    return response.data;
+  },
+
   async clearConversations(): Promise<{ success: boolean }> {
     const response = await api.post<{ success: boolean }>(
       `${CONVERSATIONS_PATH}/clear`,

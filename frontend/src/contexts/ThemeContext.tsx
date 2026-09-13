@@ -20,7 +20,7 @@ function getInitialTheme(): Theme {
   if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return 'aperture';
   }
-  return 'lumen';
+  return 'aperture';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

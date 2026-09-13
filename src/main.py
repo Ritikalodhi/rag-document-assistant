@@ -58,9 +58,6 @@ def _validate_environment() -> None:
     if missing:
         logger.warning(f"Missing required environment variables: {', '.join(missing)}")
 
-    if not os.getenv("JWT_SECRET_KEY") or os.getenv("JWT_SECRET_KEY") == "CHANGE_ME_IN_ENV":
-        logger.warning("JWT_SECRET_KEY is using default value. Set it in production!")
-
     logger.info("Environment validation complete")
 
 
@@ -173,7 +170,6 @@ class AsyncJobStatusResponse(BaseModel):
 class StatsResponse(BaseModel):
     collection_name: str
     document_count: int
-    persist_dir: str
     bm25_docs: int = 0
 
 class SummaryResponse(BaseModel):
@@ -458,13 +454,16 @@ async def get_versions(doc_id: str, user_id: str = Depends(get_current_user_id))
 
 @app.get("/api/documents/{doc_id}/versions/compare", tags=["Versioning"])
 async def compare_versions(doc_id: str, v1: int = 1, v2: int = 2, user_id: str = Depends(get_current_user_id)):
+    """Compare two specific versions (v1 vs v2) of the document.
+
+    400 for invalid version parameters (non-positive or equal versions),
+    404 for a nonexistent document or version.
+    """
     try:
-        doc = rag.get_document(user_id=user_id, doc_id=doc_id)
-        if not doc:
-            raise HTTPException(status_code=404, detail="Document not found.")
-        result = rag.diff_document_versions(user_id=user_id, doc_id_a=doc_id, doc_id_b=doc_id)
+        result = rag.compare_document_versions(user_id=user_id, doc_id=doc_id, v1=v1, v2=v2)
         if not result["success"]:
-            raise HTTPException(status_code=404, detail=result["error"])
+            status_code = 404 if result.get("error_type") == "not_found" else 400
+            raise HTTPException(status_code=status_code, detail=result["error"])
         return result
     except HTTPException:
         raise
@@ -510,9 +509,9 @@ async def get_analytics(user_id: str = Depends(get_current_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats", response_model=StatsResponse, tags=["System"])
-async def get_statistics():
+async def get_statistics(user_id: str = Depends(get_current_user_id)):
     try:
-        return StatsResponse(**rag.get_stats())
+        return StatsResponse(**rag.get_stats(user_id=user_id))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

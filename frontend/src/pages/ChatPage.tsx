@@ -115,7 +115,7 @@ export function ChatPage() {
       {/* Mobile history overlay */}
       {mobileHistoryOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/30 dark:bg-black/60 lg:hidden"
           onClick={() => setMobileHistoryOpen(false)}
           aria-hidden="true"
         />
