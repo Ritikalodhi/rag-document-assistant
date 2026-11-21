@@ -1,8 +1,8 @@
 # RAG Document Assistant
 
-A FastAPI backend for uploading documents, indexing them into a local RAG knowledge base, and asking grounded questions over the uploaded content.
+A full-stack document research workspace. Upload PDF, TXT, DOCX, or Markdown files, search them with hybrid retrieval, ask grounded questions, and inspect summaries, comparisons, study notes, versions, analytics, and exports from the web interface.
 
-This README focuses on the backend. The React frontend exists in `frontend/`.
+The project contains a FastAPI backend and a React + Vite frontend. The backend owns authentication, document ingestion, retrieval, LLM calls, and local persistence; the frontend provides the authenticated research workspace.
 
 ## What It Does
 
@@ -23,6 +23,20 @@ This README focuses on the backend. The React frontend exists in `frontend/`.
 - Provide extra document intelligence features: structured summaries, suggested questions, study notes (flashcards/viva Qs/MCQs), two-document comparison, cross-document analysis, and PDF table extraction.
 - Generate markdown or Unicode-safe PDF exports for summaries, study notes, and chat history.
 
+## Web Application
+
+After signing in, the React application provides:
+
+- Dashboard with document and usage overview.
+- Document library, document details, upload progress, summaries, suggested questions, tables, and version history.
+- Grounded chat with streaming answers, source context, confidence details, and conversation history.
+- Collections for organizing documents.
+- Study notes with flashcards, viva questions, and multiple-choice questions.
+- Two-document comparison and multi-document cross-analysis.
+- Analytics, settings, theme controls, and account management.
+
+The frontend uses React Query for server state, Axios for API requests, React Router for navigation, Tailwind CSS for styling, and Framer Motion for transitions.
+
 ## Tech Stack
 
 - Backend: FastAPI, Pydantic, Uvicorn
@@ -39,7 +53,8 @@ This README focuses on the backend. The React frontend exists in `frontend/`.
 - Auth: JWT bearer tokens (HS256, 7-day expiry) with bcrypt password hashing
 - Async job store: Redis (optional, falls back to in-memory)
 - Logging: loguru — colorized console + rotating file logs (50 MB, 30-day retention)
-- Deployment: Docker + docker-compose
+- Frontend: React, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS
+- Deployment: Docker + docker-compose (backend and Redis)
 
 ## Project Structure
 
@@ -76,7 +91,18 @@ rag-document-assistant-main/
 |       |-- security.py         # Password hashing and JWT helpers
 |       |-- dependencies.py     # Current-user dependencies
 |       `-- database.py         # SQLite user storage
-|-- tests/                      # pytest suite (9 test files)
+|-- frontend/
+|   |-- src/
+|   |   |-- pages/              # dashboard, documents, chat, analytics, study notes, etc.
+|   |   |-- components/         # layout, chat, common, and UI components
+|   |   |-- services/           # API, auth, chat, and export clients
+|   |   |-- contexts/           # auth, theme, and toast state
+|   |   `-- router.tsx          # protected application routes
+|   |-- package.json
+|   |-- vite.config.ts
+|   `-- tailwind.config.js
+|-- tests/                      # pytest suite (23 test files)
+|-- scripts/                    # diagnostics and index maintenance tools
 |-- data/                       # Runtime data, generated locally
 |-- requirements.txt
 |-- API_DOCS.md
@@ -111,7 +137,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment variables
+### 3. Configure backend environment variables
 
 Create a `.env` file in the project root.
 
@@ -175,7 +201,22 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 Important: set `JWT_SECRET_KEY` before using this outside local development. The code has a fallback value, but that fallback is not safe for production — `config.py` will refuse to start with the default key when `ENVIRONMENT=production`.
 
-## Run the Backend
+### 4. Install frontend dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+The frontend uses `http://localhost:8000` by default. To point it at another backend, create `frontend/.env.local`:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+## Run Locally
+
+Start the backend from the project root:
 
 ```bash
 python -m uvicorn src.main:app --reload
@@ -193,13 +234,28 @@ Interactive API docs:
 http://localhost:8000/docs
 ```
 
+In a second terminal, start the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open the web application at `http://localhost:5173`. Vite proxies `/api` requests to the backend during development. The frontend also supports:
+
+```bash
+npm run build    # type-check and create a production build
+npm run lint     # run ESLint
+npm run preview  # preview the production build locally
+```
+
 ## Run with Docker
 
 ```bash
 docker-compose up --build
 ```
 
-This builds the backend image and starts the API on the configured port.
+This builds the backend image, starts Redis, and exposes the API on port `8000`. The Docker Compose setup does not serve the React frontend; run the frontend locally with `npm run dev`, or deploy the generated `frontend/dist/` assets with a separate static web server.
 
 ## Authentication Flow
 
@@ -414,6 +470,14 @@ Covered scenarios:
 - Auth duplicate username/email rejection
 - Upload path traversal protection
 
+The frontend has separate build and lint checks:
+
+```bash
+cd frontend
+npm run build
+npm run lint
+```
+
 ## Troubleshooting
 
 Startup fails with an API key error:
@@ -472,6 +536,13 @@ python -m compileall src
 
 ```bash
 python -m pytest tests/ -v
+```
+
+Run the frontend checks from `frontend/`:
+
+```bash
+npm run build
+npm run lint
 ```
 
 ```bash

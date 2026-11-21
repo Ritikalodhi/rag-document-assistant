@@ -116,6 +116,15 @@ class CrossEncoderReranker:
 
         if self._available:
             rerank_scores = self._score_batch(query, docs)
+            # Cross-encoder sigmoid scores are only meaningful in RELATIVE
+            # terms within a batch, not as absolute calibrated confidences.
+            # A batch where the reranker has no strong signal (e.g. broad/
+            # conceptual queries the cross-encoder wasn't trained for) can
+            # have every score collapse near 0 -- min-max rescaling within
+            # the batch preserves the reranker's relative ranking power
+            # without letting an absolute-scale collapse crush every
+            # candidate's combined score.
+            rerank_scores = self._rescale_batch(rerank_scores)
             combined_scores = [
                 self._combine(orig, rerank)
                 for orig, rerank in zip(original_scores, rerank_scores)
@@ -187,6 +196,33 @@ class CrossEncoderReranker:
         # raw_scores are logits; sigmoid to get 0-1 relevance
         scores = [1.0 / (1.0 + math.exp(-s)) for s in raw_scores]
         return scores
+
+    @staticmethod
+    def _rescale_batch(scores: list[float]) -> list[float]:
+        """Min-max rescale rerank sigmoid scores within the current batch.
+
+        Cross-encoder sigmoid outputs are only meaningful in relative
+        terms (which candidate the model prefers over which), not as
+        absolute calibrated confidences. Some query types (broad/
+        conceptual questions the model wasn't trained to judge) cause
+        every candidate in a batch to score near-zero in absolute terms
+        even when the underlying retrieval was good. Rescaling to the
+        batch's own [min, max] range preserves the reranker's relative
+        ordering while preventing an absolute-scale collapse from
+        crushing every candidate's combined score.
+
+        When all scores in the batch are (near-)identical, there is no
+        relative signal to extract -- return them unchanged rather than
+        dividing by a ~0 range (which would produce arbitrary/unstable
+        results).
+        """
+        if not scores:
+            return scores
+        lo, hi = min(scores), max(scores)
+        spread = hi - lo
+        if spread < 1e-6:
+            return scores
+        return [(s - lo) / spread for s in scores]
 
     @staticmethod
     def _combine(retrieval_score: float, rerank_score: float) -> float:

@@ -5,80 +5,80 @@
 @layer base {
   /* ─── Lumen (light mode) ─── */
   :root {
-    --bg:                    #F7F8F7;
-    --surface:               #568e56;
+    --bg:                    #F7F8F4;
+    --surface:               #F1F3ED;
     --card:                  #FFFFFF;
-    --border:                #E5E8E5;
+    --border:                #E3E7DF;
 
     --pine-teal:             #E8F4ED;
-    --green-button:          #3F8F68;
-    --mint:                  #8FD9A7;
+    --green-button:          #285840;
+    --mint:                  #285840;
 
-    --text:                  #17201C;
-    --text-muted:            #6F7873;
+    --text:                  #29362E;
+    --text-muted:            #7C867E;
 
-    --color-bg:              247 248 247;       /* #F7F8F7 */
-    --color-surface:         238 241 238;       /* #EEF1EE */
+    --color-bg:              247 248 244;       /* #F7F8F4 */
+    --color-surface:         241 243 237;       /* #F1F3ED */
     --color-elevated:        255 255 255;       /* #FFFFFF */
-    --color-border:          229 232 229;       /* #E5E8E5 */
-    --color-border-subtle:   237 240 238;
-    --color-text:            23  32  28;        /* #17201C */
-    --color-text-secondary:  111 120 115;       /* #6F7873 */
-    --color-text-tertiary:   138 147 142;
-    --color-accent:          63  143 104;       /* #3F8F68 muted green */
-    --color-accent-hover:    52  126 91;        /* #347E5B */
-    --color-accent-muted:    232 244 237;       /* #E8F4ED pale green */
-    --color-btn-primary:     63  143 104;       /* #3F8F68 */
-    --color-btn-primary-hover: 52 126 91;
+    --color-border:          227 231 223;       /* #E3E7DF */
+    --color-border-subtle:   234 237 230;
+    --color-text:            41  54  46;        /* #29362E */
+    --color-text-secondary:  124 134 126;       /* #7C867E */
+    --color-text-tertiary:   145 153 146;
+    --color-accent:          40  88  64;        /* #285840 */
+    --color-accent-hover:    32  73  51;
+    --color-accent-muted:    228 238 229;       /* #E4EEE5 */
+    --color-btn-primary:     40  88  64;        /* #285840 */
+    --color-btn-primary-hover: 32 73 51;
     --color-btn-primary-text: 255 255 255;
-    --color-sidebar:         252 253 252;       /* #FCFCFD */
-    --color-progress:        63  143 104;
+    --color-sidebar:         241 243 237;       /* #F1F3ED */
+    --color-progress:        40  88  64;
     --color-danger:          211  41  41;
     --color-success:         63  143 104;
-    --color-nav-active-bg:   232 244 237;
-    --shadow-sm:             0 1px 2px rgba(23,32,28,0.05), 0 1px 3px rgba(23,32,28,0.05);
-    --shadow-md:             0 4px 14px -2px rgba(23,32,28,0.10), 0 2px 6px -2px rgba(23,32,28,0.06);
-    --shadow-lg:             0 12px 32px -4px rgba(23,32,28,0.13), 0 6px 12px -3px rgba(23,32,28,0.08);
-    --glow-color:            rgba(63,143,104,0.10);
+    --color-nav-active-bg:   228 238 229;
+    --shadow-sm:             0 1px 2px rgba(41,54,46,0.04);
+    --shadow-md:             0 4px 12px rgba(41,54,46,0.08);
+    --shadow-lg:             0 8px 24px rgba(41,54,46,0.10);
+    --glow-color:            rgba(40,88,64,0.10);
   }
 
   /* ─── Aperture (dark mode) ─── */
   .dark {
-    --bg:                    #0B0F0E;
-    --surface:               #131817;
-    --card:                  #151A19;
-    --border:                #252C2A;
+    --bg:                    #0D110F;
+    --surface:               #101512;
+    --card:                  #151B17;
+    --border:                #252E28;
 
-    --pine-teal:             #17241E;
-    --green-button:          #14352A;
-    --mint:                  #8FD9A7;
+    --pine-teal:             #1C2620;
+    --green-button:          #A3D9B1;
+    --mint:                  #A3D9B1;
 
-    --text:                  #F1F3F2;
-    --text-muted:            #66706C;
+    --text:                  #E7ECE7;
+    --text-muted:            #929C94;
 
-    --color-bg:              11  15  14;        /* #0B0F0E neutral charcoal */
-    --color-surface:         19  24  23;        /* #131817 */
-    --color-elevated:        21  26  25;        /* #151A19 */
-    --color-border:          37  44  42;        /* #252C2A neutral gray-green */
+    --color-bg:              13  17  15;        /* #0D110F */
+    --color-surface:         16  21  18;        /* #101512 */
+    --color-elevated:        21  27  23;        /* #151B17 */
+    --color-border:          37  46  40;        /* #252E28 */
     --color-border-subtle:   30  36  34;
-    --color-text:            241 243 242;       /* #F1F3F2 */
-    --color-text-secondary:  139 148 144;       /* #8B9490 */
-    --color-text-tertiary:   102 112 108;       /* #66706C */
-    --color-accent:          143 217 167;       /* Soft mint #8FD9A7 — accent only */
-    --color-accent-hover:    163 228 184;
-    --color-accent-muted:    23  36  30;        /* #17241E subtle dark green tint */
-    --color-btn-primary:     143 217 167;       /* Mint CTA with dark text */
-    --color-btn-primary-hover: 163 228 184;
-    --color-btn-primary-text: 8   14  12;       /* Dark text on mint */
-    --color-sidebar:         12  17  16;        /* #0C1110 */
-    --color-progress:        143 217 167;
+    --color-text:            231 236 231;       /* #E7ECE7 */
+    --color-text-secondary:  146 156 148;      /* #929C94 */
+    --color-text-tertiary:   116 127 119;
+    --color-accent:          163 217 177;       /* #A3D9B1 */
+    --color-accent-hover:    181 226 192;
+    --color-accent-muted:    28  38  32;        /* #1C2620 */
+    --color-btn-primary:     163 217 177;
+    --color-btn-primary-hover: 181 226 192;
+    --color-btn-primary-text: 13 17 15;
+    --color-sidebar:         16  21  18;       /* #101512 */
+    --color-progress:        163 217 177;
     --color-danger:          248 100 100;
     --color-success:         143 217 167;
-    --color-nav-active-bg:   23  36  30;        /* #17241E — subtle, not bright green */
-    --shadow-sm:             0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
-    --shadow-md:             0 4px 16px -2px rgba(0,0,0,0.5), 0 2px 6px -2px rgba(0,0,0,0.35);
-    --shadow-lg:             0 12px 36px -4px rgba(0,0,0,0.6), 0 6px 16px -3px rgba(0,0,0,0.45);
-    --glow-color:            rgba(80,150,105,0.10);
+    --color-nav-active-bg:   28  38  32;
+    --shadow-sm:             0 1px 2px rgba(0,0,0,0.22);
+    --shadow-md:             0 4px 12px rgba(0,0,0,0.28);
+    --shadow-lg:             0 8px 24px rgba(0,0,0,0.34);
+    --glow-color:            rgba(163,217,177,0.08);
   }
 
   html {
@@ -92,6 +92,7 @@
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 
   ::selection {
@@ -137,6 +138,11 @@
 
   html {
     scroll-behavior: smooth;
+    transition: background-color 220ms ease, color 220ms ease;
+  }
+
+  html, body, #root {
+    min-height: 100%;
   }
 }
 
@@ -150,21 +156,26 @@
     @apply animate-pulse rounded bg-[rgb(var(--color-border))];
   }
 
-  /* Glassmorphism panel */
   .glass-panel {
-    @apply bg-[rgb(var(--color-elevated))]/90 backdrop-blur-xl border border-[rgb(var(--color-border))];
+    @apply bg-[rgb(var(--color-elevated))] border border-[rgb(var(--color-border))];
   }
 
   /* Card base — subtle top-highlight adds gentle depth without glassmorphism */
   .card-base {
-    @apply rounded-[16px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]
+    @apply rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]
            shadow-[var(--shadow-sm)] transition-all duration-200;
-    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 38%);
+  }
+
+  .app-surface {
+    background-color: rgb(var(--color-bg));
+  }
+
+  .glass-surface {
+    @apply border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))];
   }
 
   .card-interactive {
-    @apply card-base hover:border-[rgb(var(--color-accent-muted))]
-           hover:shadow-[var(--shadow-md),0_0_18px_-8px_var(--glow-color)] hover:-translate-y-0.5 cursor-pointer;
+    @apply card-base hover:border-[rgb(var(--color-accent))]/40 cursor-pointer;
   }
 
   /* Sidebar nav items */

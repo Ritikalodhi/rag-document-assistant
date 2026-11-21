@@ -108,6 +108,45 @@ def test_percentage_numbers_strict(scorer):
     assert good > bad + 15.0
 
 
+def test_numbers_echoed_from_question_not_penalized():
+    context = [{
+        "content": (
+            "If the highest probability exceeds a confidence threshold of 0.85, "
+            "the class is selected; otherwise the system returns to accumulating frames."
+        )
+    }]
+    question = "What happens when confidence is 0.82? What about 0.90?"
+    answer = (
+        "At 0.82, below the 0.85 threshold, the system keeps accumulating frames. "
+        "At 0.90 the class is selected."
+    )
+    assert AnswerConfidenceScorer._grounding_score(
+        answer, context, question
+    ) > AnswerConfidenceScorer._grounding_score(answer, context) + 20
+
+
+def test_novel_number_still_penalized():
+    context = [{
+        "content": (
+            "If the highest probability exceeds a confidence threshold of 0.85, "
+            "the class is selected; otherwise the system returns to accumulating frames."
+        )
+    }]
+    question = "What happens when confidence is 0.82? What about 0.90?"
+    clean = "At 0.90 the class is selected."
+    answer = f"{clean} The model was trained on 5,000 samples."
+    assert AnswerConfidenceScorer._grounding_score(
+        answer, context, question
+    ) < AnswerConfidenceScorer._grounding_score(clean, context, question)
+
+
+def test_equivalent_decimal_spellings_are_normalized():
+    context = _ctx("The confidence threshold is 0.9.")
+    assert AnswerConfidenceScorer._grounding_score(
+        "The confidence threshold is 0.90.", context
+    ) >= 70.0
+
+
 def test_result_contains_both_field_names(scorer):
     result = scorer.score("q", "The encoder has 6 layers.", _ctx(CONTEXT))
     assert result["grounding_score"] == result["source_coverage"]

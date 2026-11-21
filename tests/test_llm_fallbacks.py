@@ -33,6 +33,28 @@ class CapturingLLM:
         yield FakeResponse()
 
 
+class CountingLLM:
+    def __init__(self, failures=None):
+        self.failures = list(failures or [])
+        self.calls = 0
+
+    def invoke(self, prompt):
+        self.calls += 1
+        if self.failures:
+            raise self.failures.pop(0)
+        return FakeResponse()
+
+
+def _make_manager(primary, fallbacks=None, max_retries=3):
+    manager = llm_module.LLMManager.__new__(llm_module.LLMManager)
+    manager.provider = "gemini"
+    manager.max_retries = max_retries
+    manager.model_name = "primary"
+    manager.llm = primary
+    manager._fallback_llms = fallbacks or []
+    return manager
+
+
 def test_invoke_uses_configured_fallback(monkeypatch):
     monkeypatch.setattr(llm_module, "LLM_FALLBACK_MODEL", "good-fallback")
     monkeypatch.setattr(llm_module, "_GEMINI_FALLBACK_MODELS", ())
@@ -51,6 +73,60 @@ def test_invoke_uses_configured_fallback(monkeypatch):
     manager._configure_default_fallbacks()
 
     assert manager._invoke("question") == "fallback answer"
+
+
+def test_quota_exhaustion_does_not_retry_same_model(monkeypatch):
+    primary = CountingLLM([RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")])
+    manager = _make_manager(primary, max_retries=3)
+    sleeps = []
+    monkeypatch.setattr(llm_module.time, "sleep", sleeps.append)
+
+    assert manager._invoke_with_retry(primary, "question") is None
+    assert primary.calls == 1
+    assert sleeps == []
+
+
+def test_quota_exhaustion_moves_to_next_fallback_model():
+    primary = CountingLLM([RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")])
+    fallback = CountingLLM()
+    manager = _make_manager(primary, [("fallback", fallback)], max_retries=3)
+
+    assert manager._invoke("question") == "fallback answer"
+    assert primary.calls == 1
+    assert fallback.calls == 1
+
+
+def test_transient_failure_keeps_existing_retry_behavior(monkeypatch):
+    primary = CountingLLM([RuntimeError("503 service unavailable")])
+    manager = _make_manager(primary, max_retries=3)
+    sleeps = []
+    monkeypatch.setattr(llm_module.time, "sleep", sleeps.append)
+
+    assert manager._invoke_with_retry(primary, "question") == "fallback answer"
+    assert primary.calls == 2
+    assert sleeps == [1.0]
+
+
+def test_all_quota_exhausted_models_keep_final_error_behavior():
+    primary = CountingLLM([RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")])
+    fallback_a = CountingLLM([RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")])
+    fallback_b = CountingLLM([RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")])
+    manager = _make_manager(
+        primary,
+        [("fallback-a", fallback_a), ("fallback-b", fallback_b)],
+        max_retries=3,
+    )
+
+    try:
+        manager._invoke("question")
+    except RuntimeError as error:
+        assert str(error) == "LLM invocation failed after all retries and fallbacks"
+    else:
+        raise AssertionError("Expected all-fallback invocation to fail")
+
+    assert primary.calls == 1
+    assert fallback_a.calls == 1
+    assert fallback_b.calls == 1
 
 
 def test_stream_uses_configured_fallback(monkeypatch):
@@ -86,6 +162,9 @@ def test_normal_answer_prompt_requires_multi_chunk_synthesis():
     assert "one evidence set, not as a single best-match excerpt" in prompt
     assert "Combine complementary facts across chunks" in prompt
     assert "only when it is supported by the retrieved context" in prompt
+    assert "provenance claims" in prompt
+    assert "Expected" in prompt
+    assert "atomic coverage check" in prompt
 
 
 def test_stream_answer_prompt_requires_multi_chunk_synthesis():
@@ -100,6 +179,9 @@ def test_stream_answer_prompt_requires_multi_chunk_synthesis():
     assert "one evidence set, not as a single best-match excerpt" in prompt
     assert "Combine complementary facts across chunks" in prompt
     assert "only when it is supported by the retrieved context" in prompt
+    assert "provenance claims" in prompt
+    assert "Expected" in prompt
+    assert "atomic coverage check" in prompt
 
 
 def test_memory_answer_prompt_preserves_history_and_shared_guidance():
@@ -121,3 +203,6 @@ def test_memory_answer_prompt_preserves_history_and_shared_guidance():
     assert "one evidence set, not as a single best-match excerpt" in prompt
     assert "Output clean, well-formatted Markdown" in prompt
     assert "Do not repeat or rephrase the user's question" in prompt
+    assert "provenance claims" in prompt
+    assert "Expected" in prompt
+    assert "atomic coverage check" in prompt

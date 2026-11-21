@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useChat } from '@/features/chat/hooks/useChat';
 import { useConversations } from '@/features/chat/hooks/useConversations';
@@ -109,7 +110,7 @@ export function ChatPage() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] -m-4 sm:-m-6 lg:-m-8 bg-[rgb(var(--color-bg))] overflow-hidden">
+    <div className="app-surface flex h-[calc(100vh-3.5rem)] -m-4 sm:-m-6 lg:-m-8 overflow-hidden">
       <CommandPalette />
 
       {/* Mobile history overlay */}
@@ -147,7 +148,7 @@ export function ChatPage() {
       />
 
       {/* Main chat container */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[rgb(var(--color-bg))] h-full">
+      <div className="flex-1 flex flex-col min-w-0 bg-[rgb(var(--color-bg))]/40 h-full">
         {/* Header line for scoped doc if docIdParam present */}
         {docIdParam && (
           <div className="h-11 border-b border-[rgb(var(--color-border))] px-4 sm:px-6 flex items-center justify-between bg-[rgb(var(--color-elevated))] flex-shrink-0">
@@ -181,41 +182,52 @@ export function ChatPage() {
           aria-live="polite"
           aria-label="Chat messages"
         >
-          <div className="max-w-[820px] mx-auto px-4 sm:px-6 py-6">
+          <div className="max-w-[860px] mx-auto px-4 sm:px-8 py-8">
             {messages.length === 0 ? (
               /* Empty state */
-              <div className="flex flex-col items-center text-center pt-[15vh]">
-                <div className="w-11 h-11 rounded-[12px] bg-[rgb(var(--color-surface))] flex items-center justify-center mb-3.5 border border-[rgb(var(--color-border))]">
+              <motion.div
+                className="flex flex-col items-center text-center pt-[13vh]"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+              >
+                <div className="w-14 h-14 rounded-[17px] bg-[rgb(var(--color-accent-muted))] flex items-center justify-center mb-5 border border-[rgb(var(--color-accent))]/30 shadow-[0_0_30px_-10px_var(--glow-color),var(--shadow-sm)]">
                   <svg className="w-5 h-5 text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <h2 className="text-[20px] font-display font-semibold mb-1.5 text-[rgb(var(--color-text))]">Ask your research library</h2>
+                <h2 className="text-[24px] font-display font-semibold mb-2 text-[rgb(var(--color-text))]">Ask your research library</h2>
                 <p className="text-[14px] text-[rgb(var(--color-text-secondary))] max-w-md leading-relaxed">
                   Search across your documents, compare ideas, and get answers grounded in your sources.
                 </p>
 
-                <div className="flex flex-wrap justify-center gap-2.5 mt-6">
-                  <button
+                <div className="flex flex-wrap justify-center gap-2.5 mt-8">
+                  <motion.button
                     onClick={() => handleSend('Summarize my documents')}
-                    className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] transition-colors"
+                    className="px-4 py-2.5 rounded-[12px] text-[13px] font-medium border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]/75 text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] hover:border-[rgb(var(--color-accent))]/45 hover:shadow-[var(--shadow-sm)] transition-all"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                   >
                     Summarize a document
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     onClick={() => handleSend('Compare key findings across my documents')}
-                    className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] transition-colors"
+                    className="px-4 py-2.5 rounded-[12px] text-[13px] font-medium border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]/75 text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] hover:border-[rgb(var(--color-accent))]/45 hover:shadow-[var(--shadow-sm)] transition-all"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                   >
                     Compare key findings
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     onClick={() => handleSend('What are the main topics in my documents?')}
-                    className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] transition-colors"
+                    className="px-4 py-2.5 rounded-[12px] text-[13px] font-medium border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))]/75 text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] hover:border-[rgb(var(--color-accent))]/45 hover:shadow-[var(--shadow-sm)] transition-all"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                   >
                     Ask across documents
-                  </button>
+                  </motion.button>
                 </div>
-              </div>
+              </motion.div>
             ) : (
               <div className="flex flex-col gap-6">
                 {/* Mobile history toggle */}

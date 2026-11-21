@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { SourceCards } from './SourceCards';
@@ -22,26 +23,36 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end my-2">
-        <div className="max-w-[80%] sm:max-w-[70%] px-4 py-3 rounded-[14px] bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] shadow-sm">
+      <motion.div
+        className="flex justify-end my-3"
+        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.24, ease: 'easeOut' }}
+      >
+        <div className="max-w-[86%] sm:max-w-[74%] px-4 py-3.5 rounded-[20px] rounded-br-[7px] bg-[linear-gradient(135deg,rgb(var(--color-accent-muted)),rgb(var(--color-elevated)))] border border-[rgb(var(--color-accent))]/25 shadow-[var(--shadow-md)]">
           <p className="text-[14px] text-[rgb(var(--color-text))] leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
   return (
-    <div className="flex flex-col gap-3.5 my-4">
+    <motion.div
+      className="flex flex-col gap-4 my-6 rounded-[22px] border border-[rgb(var(--color-border))]/70 bg-[rgb(var(--color-elevated))]/45 p-4 sm:p-5 shadow-[var(--shadow-sm)]"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
       {/* Assistant header: AI Sparkle + Brand Name + Confidence */}
       <div className="flex items-center gap-2.5">
-        <div className="w-6 h-6 rounded-[6px] bg-[rgb(var(--color-accent))] flex items-center justify-center flex-shrink-0">
-          <svg className="w-3.5 h-3.5 text-[rgb(var(--color-bg))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <div className="w-8 h-8 rounded-[11px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-accent))]/35 flex items-center justify-center flex-shrink-0 shadow-[0_0_18px_-7px_var(--glow-color)]">
+          <svg className="w-4 h-4 text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
         </div>
-        <span className="text-[13px] font-medium text-[rgb(var(--color-text-secondary))]">Aperture</span>
+        <span className="text-[14px] font-semibold text-[rgb(var(--color-text))]">Aperture</span>
         {(message.confidence_score || message.grounded !== undefined) && (
           <>
             <span className="text-[rgb(var(--color-border))] text-[12px]">·</span>
@@ -55,10 +66,14 @@ export function MessageBubble({
       </div>
 
       {/* Answer content (prose, not in a giant chat bubble) */}
-      <div className="max-w-full text-[14px] leading-relaxed text-[rgb(var(--color-text))]">
+      <div className="max-w-full pl-1 text-[14px] leading-[1.75] text-[rgb(var(--color-text))]">
         {message.isStreaming && !message.content ? (
           <div className="flex items-center gap-2 text-[rgb(var(--color-text-secondary))] py-1">
-            <span className="w-2 h-2 rounded-full bg-[rgb(var(--color-accent))] animate-ping" />
+            <motion.span
+              className="w-2 h-2 rounded-full bg-[rgb(var(--color-accent))]"
+              animate={{ scale: [1, 1.35, 1], opacity: [0.55, 1, 0.55] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+            />
             <span className="text-[13px]">Searching documents...</span>
           </div>
         ) : (
@@ -195,7 +210,7 @@ export function MessageBubble({
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

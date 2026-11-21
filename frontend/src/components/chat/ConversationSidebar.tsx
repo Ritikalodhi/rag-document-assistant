@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { groupConversationsByDate } from '@/utils/time';
 import { useDeleteConversation, useClearConversations, useRenameConversation } from '@/features/chat/hooks/useConversations';
 import { Dialog, Skeleton, EmptyState, ErrorState, Button } from '@/components/ui';
@@ -29,6 +30,7 @@ export function ConversationSidebar({
   const renameConv = useRenameConversation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
   const handleRenameStart = (conv: ConversationEntry, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -69,16 +71,16 @@ export function ConversationSidebar({
   };
 
   return (
-    <aside className="w-[240px] border-r border-[rgb(var(--color-border))] flex flex-col flex-shrink-0 hidden lg:flex bg-[rgb(var(--color-sidebar))]">
+    <aside className="w-[260px] border-r border-[rgb(var(--color-border))] flex flex-col flex-shrink-0 bg-[rgb(var(--color-sidebar))]/90 shadow-[4px_0_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur-xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[rgb(var(--color-border))]">
-        <h2 className="font-ui text-caption font-medium text-[rgb(var(--color-text-secondary))] uppercase tracking-wider text-[11px]">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[rgb(var(--color-border))] bg-[linear-gradient(135deg,rgb(var(--color-accent-muted))_0%,transparent_68%)]">
+        <h2 className="font-ui text-[15px] font-semibold text-[rgb(var(--color-text))] tracking-[-0.01em]">
           Conversations
         </h2>
         <div className="flex items-center gap-1.5">
           <button
             onClick={onNewConversation}
-            className="p-2.5 rounded-[8px] hover:bg-[rgb(var(--color-surface))] transition-colors"
+            className="p-2 rounded-[10px] border border-transparent hover:border-[rgb(var(--color-accent))]/30 hover:bg-[rgb(var(--color-elevated))]/70 transition-all"
             aria-label="New conversation"
             title="New conversation"
           >
@@ -104,7 +106,7 @@ export function ConversationSidebar({
       {/* Search */}
       {conversations && conversations.length > 0 && (
         <div className="px-3 py-2 border-b border-[rgb(var(--color-border))]">
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-[6px] bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))]">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-[11px] bg-[rgb(var(--color-elevated))]/70 border border-[rgb(var(--color-border))] shadow-[var(--shadow-sm)] focus-within:border-[rgb(var(--color-accent))]/60">
             <svg className="w-3.5 h-3.5 text-[rgb(var(--color-text-secondary))] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -132,7 +134,7 @@ export function ConversationSidebar({
       )}
 
       {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
         {isLoading && (
           <div className="flex flex-col gap-2 p-2">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -161,20 +163,38 @@ export function ConversationSidebar({
         )}
 
         {!isLoading && !error && Object.keys(groupedConvs).length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {Object.entries(groupedConvs).map(([group, convs]) => (
               <div key={group}>
                 <p className="px-3 mb-1 text-caption text-[rgb(var(--color-text-secondary))]">{group}</p>
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-1">
                   {convs.map((conv) => (
-                    <div
+                    <motion.div
                       key={conv.id}
-                      className="group flex items-center gap-1 px-3 py-2 rounded-[6px] text-left text-caption text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] transition-colors cursor-pointer"
-                      onClick={() => renamingId !== conv.id && onSelectConversation(conv)}
+                      className={`group flex items-center gap-1 px-3 py-2.5 rounded-[12px] text-left text-caption transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-accent))]/30 ${selectedConversationId === conv.id
+                        ? 'bg-[rgb(var(--color-accent-muted))] text-[rgb(var(--color-text))] border border-[rgb(var(--color-accent))]/35 shadow-[var(--shadow-sm),0_0_18px_-12px_var(--glow-color)]'
+                        : 'text-[rgb(var(--color-text-secondary))] border border-transparent hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))] hover:border-[rgb(var(--color-border))] hover:shadow-[var(--shadow-sm)]'
+                      }`}
+                      onClick={() => {
+                        if (renamingId !== conv.id) {
+                          setSelectedConversationId(conv.id);
+                          onSelectConversation(conv);
+                        }
+                      }}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && renamingId !== conv.id) onSelectConversation(conv); }}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && renamingId !== conv.id) {
+                          e.preventDefault();
+                          setSelectedConversationId(conv.id);
+                          onSelectConversation(conv);
+                        }
+                      }}
                       aria-label={`Conversation: ${conv.title}`}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(0.18, convs.indexOf(conv) * 0.025), ease: 'easeOut' }}
+                      whileHover={{ x: 2 }}
                     >
                       {renamingId === conv.id ? (
                         <input
@@ -214,7 +234,7 @@ export function ConversationSidebar({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>

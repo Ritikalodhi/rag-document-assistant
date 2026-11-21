@@ -85,6 +85,126 @@ def test_retrieve_skips_decompose_query_when_section_queries_are_sufficient():
     assert called["decompose"] == 0
 
 
+def test_multi_section_query_retrieves_each_requested_section():
+    class DummyRetriever:
+        def __init__(self):
+            self.queries = []
+
+        def retrieve_with_scores(self, query, k=4, filter=None):
+            self.queries.append(query)
+            return []
+
+    pipeline = RAGPipeline.__new__(RAGPipeline)
+    pipeline.retriever = DummyRetriever()
+    pipeline.use_reranker = False
+    pipeline._get_section_queries = lambda sections: ["limitations discussion", "future work"]
+    pipeline._is_table_query = lambda question: False
+    pipeline._is_exact_fact_query = lambda question: False
+    pipeline._is_architecture_detail_query = lambda question: False
+
+    pipeline._retrieve(
+        "What are the limitations and what future improvements are suggested?",
+        k=8,
+        filter=None,
+    )
+
+    assert pipeline.retriever.queries == ["limitations discussion", "future work"]
+
+
+def test_second_multi_section_query_retrieves_architecture_and_workflow():
+    class DummyRetriever:
+        def __init__(self):
+            self.queries = []
+
+        def retrieve_with_scores(self, query, k=4, filter=None):
+            self.queries.append(query)
+            return []
+
+    pipeline = RAGPipeline.__new__(RAGPipeline)
+    pipeline.retriever = DummyRetriever()
+    pipeline.use_reranker = False
+    pipeline._get_section_queries = lambda sections: [
+        "model architecture design",
+        "methodology overview",
+    ]
+    pipeline._is_table_query = lambda question: False
+    pipeline._is_exact_fact_query = lambda question: False
+    pipeline._is_architecture_detail_query = lambda question: False
+
+    pipeline._retrieve(
+        "Explain the architecture and workflow described in the document.",
+        k=8,
+        filter=None,
+    )
+
+    assert pipeline.retriever.queries == [
+        "model architecture design",
+        "methodology overview",
+    ]
+
+
+def test_simple_factual_query_keeps_single_retrieval_path():
+    class DummyRetriever:
+        def __init__(self):
+            self.queries = []
+
+        def retrieve_with_scores(self, query, k=4, filter=None):
+            self.queries.append((query, k))
+            return []
+
+    pipeline = RAGPipeline.__new__(RAGPipeline)
+    pipeline.retriever = DummyRetriever()
+    pipeline.use_reranker = False
+    pipeline._detect_sections = lambda question: ["results"]
+    pipeline._is_table_query = lambda question: False
+    pipeline._is_exact_fact_query = lambda question: True
+    pipeline._is_architecture_detail_query = lambda question: False
+
+    pipeline._retrieve("What is the reported accuracy?", k=15, filter=None)
+
+    assert pipeline.retriever.queries == [("What is the reported accuracy?", 6)]
+
+
+def test_multi_section_context_selection_reserves_each_section():
+    pipeline = RAGPipeline.__new__(RAGPipeline)
+    docs = [
+        (
+            DummyDoc(
+                "high scoring limitations chunk",
+                {"section_title": "Limitations", "section_path": "VI > Limitations"},
+            ),
+            95.0,
+        ),
+        (
+            DummyDoc(
+                "another limitations chunk",
+                {"section_title": "Limitations", "section_path": "VI > Limitations"},
+            ),
+            90.0,
+        ),
+        (
+            DummyDoc(
+                "lower scoring future enhancements chunk",
+                {
+                    "section_title": "Future Enhancements",
+                    "section_path": "VII > Future Enhancements",
+                },
+            ),
+            40.0,
+        ),
+    ]
+
+    _, selected = pipeline._dedup_and_filter(
+        docs,
+        ["limitations", "future_work"],
+        k=2,
+    )
+
+    selected_sections = {doc.metadata["section_title"] for doc, _ in selected}
+    assert selected_sections == {"Limitations", "Future Enhancements"}
+    assert len(selected) == 2
+
+
 def test_suggested_questions_returns_list_not_json_string():
     class DummyLLM:
         def _invoke(self, prompt):

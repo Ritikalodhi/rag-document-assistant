@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Outlet, NavLink } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -37,33 +38,42 @@ export function AppLayout() {
       </div>
 
       {/* ── Mobile: backdrop overlay ── */}
+      <AnimatePresence>
       {mobileDrawerOpen && (
-        <div
+        <motion.div
           className="fixed inset-0 z-30 bg-black/30 dark:bg-black/60 lg:hidden"
           onClick={() => setMobileDrawerOpen(false)}
           aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
         />
       )}
 
       {/* ── Mobile: sidebar drawer ── */}
-      <div
+      <motion.div
         className={`fixed top-0 left-0 h-full z-40 lg:hidden transition-transform duration-250 ${
           mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        initial={false}
+        animate={{ x: mobileDrawerOpen ? 0 : '-100%' }}
+        transition={{ duration: 0.24, ease: 'easeOut' }}
       >
         <Sidebar
           docCount={docCount}
           conversationCount={conversationCount}
           collectionCount={collectionCount}
         />
-      </div>
+      </motion.div>
+      </AnimatePresence>
 
       {/* ── Main content area ── */}
       <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
         <Topbar onMenuToggle={toggleMobileDrawer} />
 
         <main
-          className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
+          className="app-surface flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
           id="main-content"
         >
           <div className="px-6 py-6 lg:px-8 lg:py-8 max-w-[1380px] w-full mx-auto min-w-0">
@@ -73,7 +83,7 @@ export function AppLayout() {
 
         {/* ── Mobile bottom nav ── */}
         <nav
-          className="lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-[rgb(var(--color-elevated))] border-t border-[rgb(var(--color-border))] flex items-center justify-around px-2 z-20"
+          className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[rgb(var(--color-elevated))]/95 backdrop-blur-xl border-t border-[rgb(var(--color-border))] flex items-center justify-around px-2 z-20 shadow-[var(--shadow-lg)]"
           aria-label="Mobile navigation"
         >
           <MobileNavLink href="/dashboard" label="Home" icon="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -83,7 +93,7 @@ export function AppLayout() {
         </nav>
 
         {/* Bottom-nav spacer on mobile */}
-        <div className="lg:hidden h-14 flex-shrink-0" aria-hidden="true" />
+        <div className="lg:hidden h-16 flex-shrink-0" aria-hidden="true" />
       </div>
     </div>
   );

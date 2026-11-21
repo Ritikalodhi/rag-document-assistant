@@ -43,8 +43,8 @@ const quickActions = [
       </svg>
     ),
     href: '/chat',
-    iconColor: 'text-blue-600 dark:text-blue-300',
-    iconBg: 'bg-blue-500/10 dark:bg-blue-400/10',
+    iconColor: 'text-[rgb(var(--color-accent))]',
+    iconBg: 'bg-[rgb(var(--color-accent-muted))]',
   },
   {
     label: 'Summarize',
@@ -55,8 +55,8 @@ const quickActions = [
       </svg>
     ),
     href: '/documents',
-    iconColor: 'text-amber-600 dark:text-amber-300',
-    iconBg: 'bg-amber-500/10 dark:bg-amber-400/10',
+    iconColor: 'text-[rgb(var(--color-accent))]',
+    iconBg: 'bg-[rgb(var(--color-accent-muted))]',
   },
   {
     label: 'Study Notes',
@@ -67,8 +67,8 @@ const quickActions = [
       </svg>
     ),
     href: '/study-notes',
-    iconColor: 'text-violet-600 dark:text-violet-300',
-    iconBg: 'bg-violet-500/10 dark:bg-violet-400/10',
+    iconColor: 'text-[rgb(var(--color-accent))]',
+    iconBg: 'bg-[rgb(var(--color-accent-muted))]',
   },
   {
     label: 'Compare',
@@ -79,8 +79,8 @@ const quickActions = [
       </svg>
     ),
     href: '/compare',
-    iconColor: 'text-sky-600 dark:text-sky-300',
-    iconBg: 'bg-sky-500/10 dark:bg-sky-400/10',
+    iconColor: 'text-[rgb(var(--color-accent))]',
+    iconBg: 'bg-[rgb(var(--color-accent-muted))]',
   },
   {
     label: 'Cross-Document',
@@ -91,8 +91,8 @@ const quickActions = [
       </svg>
     ),
     href: '/cross-analysis',
-    iconColor: 'text-fuchsia-600 dark:text-fuchsia-300',
-    iconBg: 'bg-fuchsia-500/10 dark:bg-fuchsia-400/10',
+    iconColor: 'text-[rgb(var(--color-accent))]',
+    iconBg: 'bg-[rgb(var(--color-accent-muted))]',
   },
 ];
 
@@ -263,31 +263,15 @@ export function DashboardPage() {
           {/* ── 1. Welcome Card ── */}
           <motion.div
             {...motionProps(0)}
-            className="relative overflow-hidden rounded-[20px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-8 sm:p-9 shadow-[var(--shadow-sm)]"
+            className="relative overflow-hidden rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-6 sm:p-8 shadow-[var(--shadow-sm)]"
           >
-            {/* Subtle background pine glow */}
-            <div
-              className="absolute top-0 right-0 w-80 h-80 rounded-full pointer-events-none"
-              style={{
-                background: 'radial-gradient(circle, var(--glow-color) 0%, transparent 70%)',
-                transform: 'translate(20%, -30%)',
-              }}
-            />
-            {/* Very subtle mint halo behind the decorative illustration */}
-            <div
-              className="absolute bottom-[-30%] right-[-5%] w-72 h-72 rounded-full pointer-events-none"
-              style={{
-                background: 'radial-gradient(circle, var(--glow-color) 0%, transparent 70%)',
-              }}
-            />
-
             <div className="relative z-10 flex items-center justify-between gap-8">
               <div className="flex-1 min-w-0">
                 <p className="text-[11.5px] font-bold text-[rgb(var(--color-text-tertiary))] uppercase tracking-[0.14em] mb-2.5">
                   {dateLabel}
                 </p>
-                <h1 className="text-[32px] sm:text-[36px] font-bold tracking-tight text-[rgb(var(--color-text))] leading-[1.15] font-ui">
-                  {getGreeting()}{user?.username ? `, ${user.username}` : ''} 👋
+                <h1 className="text-[28px] sm:text-[32px] font-semibold tracking-tight text-[rgb(var(--color-text))] leading-[1.15] font-ui">
+                  {getGreeting()}{user?.username ? `, ${user.username}` : ''}
                 </h1>
                 {docsLoading ? (
                   <Skeleton variant="text" width={320} className="mt-3" />
@@ -302,7 +286,7 @@ export function DashboardPage() {
                 <div className="flex items-center gap-3.5 mt-6 flex-wrap">
                   <button
                     onClick={() => navigate('/upload')}
-                    className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-[10px] text-[rgb(var(--color-btn-primary-text))] font-semibold text-[14px] bg-[rgb(var(--color-btn-primary))] bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0)_42%)] hover:bg-[rgb(var(--color-btn-primary-hover))] shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.25),0_0_18px_-6px_var(--glow-color)] transition-all duration-200 cursor-pointer active:scale-[0.98] min-h-[44px]"
+                    className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-[8px] text-[rgb(var(--color-btn-primary-text))] font-semibold text-[14px] bg-[rgb(var(--color-btn-primary))] hover:bg-[rgb(var(--color-btn-primary-hover))] transition-colors duration-150 cursor-pointer active:scale-[0.98] min-h-[42px]"
                   >
                     <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -312,9 +296,9 @@ export function DashboardPage() {
 
                   <button
                     onClick={() => navigate('/chat')}
-                    className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-[10px] text-[rgb(var(--color-text))] font-semibold text-[14px] bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-elevated))] hover:border-[rgb(var(--color-accent-muted))] shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all duration-200 cursor-pointer active:scale-[0.98] min-h-[44px]"
+                    className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-[8px] text-[rgb(var(--color-text))] font-semibold text-[14px] bg-transparent border border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-surface))] hover:border-[rgb(var(--color-accent))]/40 transition-colors duration-150 cursor-pointer active:scale-[0.98] min-h-[42px]"
                   >
-                    <svg className="w-[18px] h-[18px] text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-[18px] h-[18px] text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                     <span>Ask AI</span>
@@ -331,7 +315,7 @@ export function DashboardPage() {
 
           {/* ── 2. Continue Reading Card (Data-Driven) ── */}
           <motion.div {...motionProps(0.05)}>
-            <div className="rounded-[20px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-7 shadow-[var(--shadow-sm),inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[rgb(var(--color-accent-muted))] hover:shadow-[var(--shadow-md),0_0_20px_-8px_var(--glow-color)] transition-all duration-200">
+            <div className="rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-6 shadow-[var(--shadow-sm)] hover:border-[rgb(var(--color-accent))]/40 transition-colors duration-150">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[16px] font-bold text-[rgb(var(--color-text))] font-ui">
                   Continue Reading
@@ -431,7 +415,7 @@ export function DashboardPage() {
                 <button
                   key={action.label}
                   onClick={() => navigate(action.href)}
-                  className="flex items-start gap-4 p-5 rounded-[18px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] hover:border-[rgb(var(--color-accent-muted))] hover:bg-[rgb(var(--color-surface))] hover:shadow-[var(--shadow-md),0_0_18px_-8px_var(--glow-color)] transition-all duration-200 text-left group shadow-[var(--shadow-sm)] active:scale-[0.98] min-h-[110px] cursor-pointer"
+                  className="flex items-start gap-4 p-4 rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] hover:border-[rgb(var(--color-accent))]/40 hover:bg-[rgb(var(--color-surface))] transition-colors duration-150 text-left group active:scale-[0.98] min-h-[96px] cursor-pointer"
                 >
                   <div className={`w-[48px] h-[48px] rounded-[13px] ${action.iconBg} ${action.iconColor} flex items-center justify-center flex-shrink-0 transition-all duration-200 group-hover:scale-[1.06] border border-[rgb(var(--color-border))]`}>
                     {action.icon}
@@ -456,7 +440,7 @@ export function DashboardPage() {
 
           {/* ── 4. Recent Activity (Data-Driven) ── */}
           <motion.div {...motionProps(0.08)}>
-            <div className="rounded-[20px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-6 shadow-[var(--shadow-sm)]">
+            <div className="rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-6 shadow-[var(--shadow-sm)]">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-[16px] font-bold text-[rgb(var(--color-text))] font-ui">
                   Recent Activity
@@ -546,7 +530,7 @@ export function DashboardPage() {
 
           {/* ── 5. Workspace Overview (Data-Driven) ── */}
           <motion.div {...motionProps(0.12)}>
-            <div className="rounded-[20px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-6 shadow-[var(--shadow-sm)]">
+            <div className="rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-6 shadow-[var(--shadow-sm)]">
               <h2 className="text-[16px] font-bold text-[rgb(var(--color-text))] mb-4 font-ui">
                 Workspace Overview
               </h2>
@@ -575,8 +559,8 @@ export function DashboardPage() {
                   className="flex items-center justify-between p-3 rounded-[14px] hover:bg-[rgb(var(--color-surface))] transition-colors group cursor-pointer w-full text-left"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-[40px] h-[40px] rounded-[12px] bg-blue-500/10 dark:bg-blue-400/10 border border-[rgb(var(--color-border))] flex items-center justify-center">
-                      <svg className="w-[20px] h-[20px] text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-[40px] h-[40px] rounded-[10px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-border))] flex items-center justify-center">
+                      <svg className="w-[20px] h-[20px] text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                     </div>
@@ -593,8 +577,8 @@ export function DashboardPage() {
                   className="flex items-center justify-between p-3 rounded-[14px] hover:bg-[rgb(var(--color-surface))] transition-colors group cursor-pointer w-full text-left"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-[40px] h-[40px] rounded-[12px] bg-amber-500/10 dark:bg-amber-400/10 border border-[rgb(var(--color-border))] flex items-center justify-center">
-                      <svg className="w-[20px] h-[20px] text-amber-600 dark:text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-[40px] h-[40px] rounded-[10px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-border))] flex items-center justify-center">
+                      <svg className="w-[20px] h-[20px] text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                     </div>
@@ -611,8 +595,8 @@ export function DashboardPage() {
                   className="flex items-center justify-between p-3 rounded-[14px] hover:bg-[rgb(var(--color-surface))] transition-colors group cursor-pointer w-full text-left"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-[40px] h-[40px] rounded-[12px] bg-violet-500/10 dark:bg-violet-400/10 border border-[rgb(var(--color-border))] flex items-center justify-center">
-                      <svg className="w-[20px] h-[20px] text-violet-600 dark:text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-[40px] h-[40px] rounded-[10px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-border))] flex items-center justify-center">
+                      <svg className="w-[20px] h-[20px] text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </div>

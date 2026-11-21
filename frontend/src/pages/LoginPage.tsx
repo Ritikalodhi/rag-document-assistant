@@ -36,8 +36,9 @@ export function LoginPage() {
   return (
     <AuthShell>
       {/* Title section */}
-      <div className="mb-7">
-        <h1 className="font-display text-[30px] font-semibold tracking-[-0.025em] text-[#F2F4F3] mb-1.5">
+      <div className="mb-8">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#77C992] mb-3">Research workspace</p>
+        <h1 className="font-display text-[32px] font-semibold tracking-[-0.025em] text-[#F2F4F3] mb-2">
           Welcome back
         </h1>
         <p className="text-[14px] text-[#8E9398]">
@@ -69,7 +70,7 @@ export function LoginPage() {
             required
             autoComplete="email"
             placeholder="you@example.com"
-            className="w-full px-4 py-2.5 rounded-[10px] bg-[#191D1F] border border-[#2A3034] text-[#F2F4F3] text-[14px] placeholder-[#62666A] focus:outline-none focus:border-[#315540] focus:ring-2 focus:ring-[#315540]/30 transition-all duration-200"
+            className="w-full px-4 py-3 rounded-[12px] bg-[#0E1511]/80 border border-[#2A3D31] text-[#F2F4F3] text-[14px] placeholder-[#66756C] focus:outline-none focus:border-[#6ED596]/60 focus:ring-4 focus:ring-[#6ED596]/10 transition-all duration-200"
           />
         </div>
 
@@ -85,7 +86,7 @@ export function LoginPage() {
             required
             autoComplete="current-password"
             placeholder="••••••••"
-            className="w-full px-4 py-2.5 rounded-[10px] bg-[#191D1F] border border-[#2A3034] text-[#F2F4F3] text-[14px] placeholder-[#62666A] focus:outline-none focus:border-[#315540] focus:ring-2 focus:ring-[#315540]/30 transition-all duration-200"
+            className="w-full px-4 py-3 rounded-[12px] bg-[#0E1511]/80 border border-[#2A3D31] text-[#F2F4F3] text-[14px] placeholder-[#66756C] focus:outline-none focus:border-[#6ED596]/60 focus:ring-4 focus:ring-[#6ED596]/10 transition-all duration-200"
           />
         </div>
 
@@ -93,7 +94,7 @@ export function LoginPage() {
           type="submit"
           disabled={isSubmitting}
           id="login-submit"
-          className="w-full mt-1 py-2.5 px-4 rounded-[11px] text-[#F2F4F3] font-semibold text-[14px] bg-[#315540] hover:bg-[#3A644C] transition-all duration-150 shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+          className="w-full mt-2 py-3 px-4 rounded-[12px] text-[#08100B] font-bold text-[14px] bg-[#78D99A] hover:bg-[#95E7B1] transition-all duration-200 shadow-[0_10px_24px_-12px_rgba(120,217,154,0.9),inset_0_1px_0_rgba(255,255,255,0.55)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
         >
           {isSubmitting ? (
             <>

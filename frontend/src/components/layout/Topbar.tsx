@@ -13,7 +13,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   const navigate = useNavigate();
 
   return (
-    <header className="h-[80px] border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg))]/95 backdrop-blur-xl flex items-center justify-between px-8 gap-4 flex-shrink-0 z-30">
+    <header className="h-[64px] border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg))] flex items-center justify-between px-3 sm:px-6 lg:px-8 gap-2 sm:gap-4 flex-shrink-0 z-30">
       {/* Left: Mobile Menu Toggle */}
       <button
         onClick={onMenuToggle}
@@ -29,7 +29,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
       <div className="flex-1 max-w-[560px]">
         <button
           onClick={() => navigate('/chat')}
-          className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-[16px] bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] text-[14px] text-[rgb(var(--color-text-secondary))] hover:border-[rgb(var(--color-accent-muted))] hover:text-[rgb(var(--color-text))] hover:bg-[rgb(var(--color-elevated))] focus-visible:border-[rgb(var(--color-accent-muted))] focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-accent))]/15 transition-all duration-200 text-left shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] group min-h-[44px]"
+          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-[9px] bg-[rgb(var(--color-elevated))] border border-[rgb(var(--color-border))] text-[13px] text-[rgb(var(--color-text-secondary))] hover:border-[rgb(var(--color-accent))]/45 hover:text-[rgb(var(--color-text))] focus-visible:border-[rgb(var(--color-accent))]/65 focus-visible:ring-4 focus-visible:ring-[rgb(var(--color-accent))]/10 transition-colors duration-150 text-left group min-h-[40px]"
           aria-label="Search or ask across your documents"
         >
           <svg className="w-[17px] h-[17px] text-[rgb(var(--color-text-secondary))] group-hover:text-[rgb(var(--color-accent))] transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -48,7 +48,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
         <Tooltip content={isDark ? 'Switch to light theme' : 'Switch to dark theme'}>
           <button
             onClick={toggleTheme}
-            className="p-2.5 rounded-[12px] border border-transparent hover:border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-surface))] transition-all duration-150 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))] active:scale-95"
+            className="p-2 rounded-[8px] border border-transparent hover:border-[rgb(var(--color-accent))]/30 hover:bg-[rgb(var(--color-surface))] transition-colors duration-150 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))] active:scale-95"
             aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
           >
             {isDark ? (
@@ -66,7 +66,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
         {/* Notification Bell */}
         <Tooltip content="Notifications">
           <button
-            className="p-2.5 rounded-[12px] border border-transparent hover:border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-surface))] transition-all duration-150 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))] active:scale-95"
+            className="p-2 rounded-[8px] border border-transparent hover:border-[rgb(var(--color-accent))]/30 hover:bg-[rgb(var(--color-surface))] transition-colors duration-150 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))] active:scale-95"
             aria-label="Notifications"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -78,7 +78,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
         {/* New Chat Button */}
         <button
           onClick={() => navigate('/chat?new=1')}
-          className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[rgb(var(--color-btn-primary-text))] text-[13.5px] font-semibold bg-[rgb(var(--color-btn-primary))] bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0)_42%)] hover:bg-[rgb(var(--color-btn-primary-hover))] shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)] hover:shadow-[var(--shadow-md),0_0_18px_-6px_var(--glow-color)] transition-all duration-200 cursor-pointer active:scale-[0.98] min-h-[40px]"
+          className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-[8px] text-[rgb(var(--color-btn-primary-text))] text-[13px] font-semibold bg-[rgb(var(--color-btn-primary))] hover:bg-[rgb(var(--color-btn-primary-hover))] transition-colors duration-150 cursor-pointer active:scale-[0.98] min-h-[38px]"
           aria-label="New chat"
         >
           <svg className="w-4 h-4 text-[rgb(var(--color-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

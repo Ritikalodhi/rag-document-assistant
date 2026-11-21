@@ -161,10 +161,10 @@ export function Sidebar({ docCount, conversationCount, collectionCount }: Sideba
           className={`flex items-center hover:opacity-100 transition-all duration-200 group ${collapsed ? '' : 'gap-3'}`}
           aria-label="Go to dashboard"
         >
-          {/* Rounded-square logo icon with subtle glow */}
-          <div className="w-[44px] h-[44px] rounded-[13px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-accent))]/30 flex items-center justify-center flex-shrink-0 shadow-[0_0_0_1px_var(--glow-color)] group-hover:shadow-[0_0_16px_var(--glow-color)] transition-shadow duration-200">
+          {/* Simple aperture mark */}
+          <div className="w-[36px] h-[36px] rounded-[10px] bg-[rgb(var(--color-accent-muted))] border border-[rgb(var(--color-accent))]/30 flex items-center justify-center flex-shrink-0 transition-colors duration-200 group-hover:bg-[rgb(var(--color-surface))]">
             <svg
-              className="w-[26px] h-[26px] text-[rgb(var(--color-accent))]" 
+              className="w-[22px] h-[22px] text-[rgb(var(--color-accent))]"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -179,8 +179,9 @@ export function Sidebar({ docCount, conversationCount, collectionCount }: Sideba
             </svg>
           </div>
           {!collapsed && (
-            <span className="text-[20px] font-bold tracking-tight text-[rgb(var(--color-text))] font-ui leading-none">
-              Aperture
+            <span className="flex flex-col text-left leading-none">
+              <span className="text-[17px] font-semibold tracking-tight text-[rgb(var(--color-text))] font-ui">Aperture</span>
+              <span className="mt-0.5 text-[9px] font-medium tracking-[0.12em] uppercase text-[rgb(var(--color-text-secondary))]">Research workspace</span>
             </span>
           )}
         </button>
@@ -214,7 +215,7 @@ export function Sidebar({ docCount, conversationCount, collectionCount }: Sideba
                     ${collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-2.5 py-2.5'}
                     ${
                       active
-                        ? 'bg-[rgb(var(--color-accent-muted))] text-[rgb(var(--color-text))] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.06),var(--shadow-sm)] ring-1 ring-inset ring-[rgb(var(--color-accent))]/25'
+                        ? 'bg-[rgb(var(--color-accent-muted))] text-[rgb(var(--color-text))] font-semibold'
                         : 'text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))]'
                     }
                   `}
@@ -256,7 +257,7 @@ export function Sidebar({ docCount, conversationCount, collectionCount }: Sideba
             ${collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-2.5 py-2.5'}
             ${
               location.pathname === '/settings'
-                ? 'bg-[rgb(var(--color-accent-muted))] text-[rgb(var(--color-text))] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.06),var(--shadow-sm)] ring-1 ring-inset ring-[rgb(var(--color-accent))]/25'
+                ? 'bg-[rgb(var(--color-accent-muted))] text-[rgb(var(--color-text))] font-semibold'
                 : 'text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-text))]'
             }
           `}
@@ -296,7 +297,7 @@ export function Sidebar({ docCount, conversationCount, collectionCount }: Sideba
       <div className="p-3 flex-shrink-0">
         <button
           onClick={() => navigate('/settings')}
-          className={`w-full flex items-center rounded-[13px] bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] hover:border-[rgb(var(--color-accent-muted))] hover:bg-[rgb(var(--color-elevated))] hover:shadow-[var(--shadow-md),0_0_16px_-8px_var(--glow-color)] transition-all duration-150 group ${
+          className={`w-full flex items-center rounded-[10px] bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] hover:border-[rgb(var(--color-accent))]/40 hover:bg-[rgb(var(--color-elevated))] transition-all duration-150 group ${
             collapsed ? 'justify-center p-2.5' : 'gap-3 p-3'
           }`}
           aria-label="Account settings"

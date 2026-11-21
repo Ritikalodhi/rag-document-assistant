@@ -86,6 +86,37 @@ def test_refusal_when_information_absent(scorer):
     assert s >= 60.0
 
 
+def test_comprehensive_enumeration_is_not_zero(scorer):
+    q = "What are the key components or features mentioned in the document?"
+    answer = (
+        "### Data Collection\n- Parallel corpus\n"
+        "### Preprocessing\n- Unicode normalization\n"
+        "### Translation Model\n- Transformer encoder-decoder\n"
+        "### Post-Processing\n- Grammar correction\n"
+        "### Deployment\n- Web application"
+    )
+    assert scorer._heuristic_completeness(q, answer) > 0.0
+
+
+def test_incomplete_enumeration_is_reduced(scorer):
+    q = "What are the key components or features mentioned in the document?"
+    answer = "- Transformer-based translation model"
+    score = scorer._heuristic_completeness(q, answer)
+    assert 0.0 < score < 80.0
+
+
+def test_paraphrased_enumeration_answer_is_supported(scorer):
+    q = "What are the main components?"
+    answer = "- The system comprises data collection, preprocessing, and deployment."
+    assert scorer._heuristic_completeness(q, answer) > 0.0
+
+
+def test_q3_multi_part_behavior_is_unchanged(scorer):
+    q = "Explain the main concept, key components, and workflow described in the document."
+    answer = "The main concept is translation. Key components are the model and workflow steps."
+    assert scorer._heuristic_completeness(q, answer) == 100.0
+
+
 # ── Formatting must not matter ───────────────────────────────────────────
 
 

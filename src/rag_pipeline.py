@@ -203,6 +203,7 @@ class RAGPipeline:
         "architecture": "model",
         "model design": "model",
         "model": "model",
+        "workflow": "methodology",
         "training": "training",
         "dataset": "dataset",
         "corpus": "dataset",
@@ -212,6 +213,7 @@ class RAGPipeline:
         "future work": "future_work",
         "future enhancements": "future_work",
         "future enhancement": "future_work",
+        "future improvements": "future_work",
         "planned improvements": "future_work",
         "planned enhancements": "future_work",
         "literature review": "background",
@@ -511,6 +513,7 @@ class RAGPipeline:
         """
         q_lower = rewritten_query.lower()
         detected_sections = self._detect_sections(rewritten_query)
+        is_multi_section = len(detected_sections) > 1
         is_table = self._is_table_query(rewritten_query)
 
         broad_signals = (
@@ -518,7 +521,11 @@ class RAGPipeline:
             "summarise", "overview", "all the", "everything about",
         )
         is_broad = any(sig in q_lower for sig in broad_signals) or len(q_lower.split()) > 18
-        is_simple_fact = self._is_exact_fact_query(rewritten_query) and not is_broad
+        is_simple_fact = (
+            self._is_exact_fact_query(rewritten_query)
+            and not is_broad
+            and not is_multi_section
+        )
 
         # Architecture-detail questions (encoder/decoder layers, attention
         # heads, dropout, optimizer, etc.) frequently miss the "Model Design
@@ -622,11 +629,11 @@ class RAGPipeline:
 
         # Build sub-queries from detected sections + LLM decomposition.
         sub_queries: list[str] = []
-        if detected_sections and is_broad:
+        if detected_sections and (is_broad or is_multi_section):
             sub_queries.extend(self._get_section_queries(detected_sections))
 
         # LLM decomposition is only for genuinely broad non-table questions.
-        if is_broad and len(sub_queries) < 4:
+        if is_broad and not is_multi_section and len(sub_queries) < 4:
             llm_sub = self._decompose_query(
                 rewritten_query,
                 sections=detected_sections,
@@ -1265,7 +1272,36 @@ class RAGPipeline:
                 )
                 filtered = list(filtered) + rescued
 
-        unique_scored = filtered[:k]
+        if sections and len(sections) > 1:
+            # Reserve the strongest available chunk for each requested
+            # section, then fill the remaining slots by relevance. This
+            # prevents one section from crowding out another requested one.
+            ranked = sorted(
+                enumerate(filtered),
+                key=lambda item: item[1][1],
+                reverse=True,
+            )
+            selected_indices: set[int] = set()
+            for section in sections:
+                section_candidates = [
+                    item for item in ranked
+                    if item[0] not in selected_indices
+                    and self._section_matches(item[1][0], [section])
+                ]
+                if section_candidates:
+                    selected_indices.add(section_candidates[0][0])
+
+            for index, _ in ranked:
+                if len(selected_indices) >= k:
+                    break
+                selected_indices.add(index)
+
+            unique_scored = [
+                item for index, item in ranked
+                if index in selected_indices
+            ][:k]
+        else:
+            unique_scored = filtered[:k]
         return scored_docs, unique_scored
 
     def _build_context_entries(self, unique_scored: list) -> list[dict]:
@@ -1480,7 +1516,8 @@ class RAGPipeline:
             full_answer.append(token)
             yield "data: " + _json.dumps({"type": "token", "content": token}) + "\n\n"
 
-        answer = "".join(full_answer)
+        raw_answer = "".join(full_answer)
+        answer = self.llm_manager.audit_and_normalize_answer(question, raw_answer, context_str)
         confidence_score = self.confidence_scorer.score(
             question=question,
             answer=answer,

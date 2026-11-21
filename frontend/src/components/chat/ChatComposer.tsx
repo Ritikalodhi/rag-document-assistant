@@ -88,8 +88,8 @@ export function ChatComposer({ onSend, onAbort, onFileUpload, isLoading }: ChatC
         </div>
       )}
 
-      <div className="max-w-[820px] mx-auto px-4 sm:px-6 py-3">
-        <div className="rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-2.5 focus-within:border-[rgb(var(--color-text-tertiary))] transition-colors shadow-sm">
+      <div className="max-w-[860px] mx-auto px-4 sm:px-8 py-4">
+        <div className="rounded-[12px] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-elevated))] p-3 focus-within:border-[rgb(var(--color-accent))]/75 focus-within:ring-4 focus-within:ring-[rgb(var(--color-accent))]/12 transition-colors duration-150 shadow-[var(--shadow-sm)]">
           <textarea
             ref={textareaRef}
             value={input}
@@ -119,7 +119,7 @@ export function ChatComposer({ onSend, onAbort, onFileUpload, isLoading }: ChatC
                     };
                     fileInput.click();
                   }}
-                  className="p-2.5 rounded-[8px] hover:bg-[rgb(var(--color-surface))] transition-colors text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text))]"
+                  className="p-2.5 rounded-[10px] hover:bg-[rgb(var(--color-surface))] hover:text-[rgb(var(--color-accent))] transition-all text-[rgb(var(--color-text-secondary))]"
                   aria-label="Attach file"
                   title="Attach file"
                 >
@@ -150,7 +150,7 @@ export function ChatComposer({ onSend, onAbort, onFileUpload, isLoading }: ChatC
                 <button
                   onClick={handleSend}
                   disabled={!input.trim()}
-                  className="w-7 h-7 rounded-full bg-[rgb(var(--color-btn-primary))] text-[rgb(var(--color-btn-primary-text))] hover:bg-[rgb(var(--color-btn-primary-hover))] flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                  className="w-9 h-9 rounded-[9px] bg-[rgb(var(--color-btn-primary))] text-[rgb(var(--color-btn-primary-text))] hover:bg-[rgb(var(--color-btn-primary-hover))] flex items-center justify-center transition-colors duration-150 disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
                   aria-label="Send message"
                 >
                   <svg
